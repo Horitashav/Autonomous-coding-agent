@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autonomous-agent"
+version = "0.1.0"
+description = "An autonomous coding agent with sandboxed execution and self-healing capabilities"
+requires-python = ">=3.11"
+
+dependencies = [
+    "docker>=7.0.0",
+    "openai>=1.30.0",
+    "langchain-openai>=0.1.0",
+    "langgraph>=0.2.0",
+    "pydantic>=2.5.0",
+    "python-dotenv>=1.0.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.4.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
