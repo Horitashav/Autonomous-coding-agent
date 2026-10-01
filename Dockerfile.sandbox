@@ -1,0 +1,19 @@
+# Start from the lightweight Debian-based Python image
+FROM python:3.11-slim
+
+# Install standard data processing libraries without keeping temporary install cache
+RUN pip install --no-cache-dir \
+    numpy==1.26.4 \
+    pandas==2.2.1 \
+    matplotlib==3.8.3 \
+    && rm -rf /root/.cache/pip
+
+# Security: Create a restricted user 'sandbox' with its own home directory
+RUN useradd --create-home --shell /bin/bash sandbox
+
+# Switch execution context from root to the non-root 'sandbox' user
+USER sandbox
+WORKDIR /home/sandbox
+
+# Default fallback command
+CMD ["python", "--version"]
