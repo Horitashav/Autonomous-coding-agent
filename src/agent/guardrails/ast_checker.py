@@ -2,6 +2,7 @@
 
 import ast
 from dataclasses import dataclass, field
+
 from agent.config import FORBIDDEN_MODULES
 
 
@@ -24,15 +25,15 @@ class ASTCheckResult:
 
 # Built-in functions that should never be executed dynamically
 FORBIDDEN_BUILTINS: set[str] = {
-    "eval",        # Executes arbitrary string code
-    "exec",        # Executes arbitrary Python statements
-    "compile",     # Compiles raw strings into executable code objects
+    "eval",  # Executes arbitrary string code
+    "exec",  # Executes arbitrary Python statements
+    "compile",  # Compiles raw strings into executable code objects
     "__import__",  # Bypasses standard import statements
-    "globals",     # Accesses global symbol table (can extract __builtins__)
+    "globals",  # Accesses global symbol table (can extract __builtins__)
     "breakpoint",  # Drops into interactive debugger (freezes the process)
-    "exit",        # Prematurely halts the interpreter
-    "quit",        # Prematurely halts the interpreter
-    "input",       # Waits for user keyboard input (hangs indefinitely)
+    "exit",  # Prematurely halts the interpreter
+    "quit",  # Prematurely halts the interpreter
+    "input",  # Waits for user keyboard input (hangs indefinitely)
 }
 
 

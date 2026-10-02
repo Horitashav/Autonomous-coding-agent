@@ -2,10 +2,10 @@
 
 import logging
 from dataclasses import dataclass
-from typing import Optional
+
 import docker
 
-from agent.config import SANDBOX_DOCKER_IMAGE, SANDBOX_TIMEOUT_SECONDS
+from agent.config import SANDBOX_DOCKER_IMAGE
 from agent.sandbox.resource_limits import DEFAULT_LIMITS, SandboxLimits
 
 logger = logging.getLogger(__name__)
@@ -15,11 +15,11 @@ logger = logging.getLogger(__name__)
 class ExecutionResult:
     """The structured outcome of running code inside the sandbox."""
 
-    exit_code: int          # 0 = success, non-zero = failure, -1 = timeout/crash
-    stdout: str             # Captured standard output
-    stderr: str             # Captured error output/tracebacks
-    timed_out: bool         # Flag indicating if execution was halted by timeout
-    error_message: str = "" # High-level failure description
+    exit_code: int  # 0 = success, non-zero = failure, -1 = timeout/crash
+    stdout: str  # Captured standard output
+    stderr: str  # Captured error output/tracebacks
+    timed_out: bool  # Flag indicating if execution was halted by timeout
+    error_message: str = ""  # High-level failure description
 
     @property
     def succeeded(self) -> bool:
@@ -32,7 +32,7 @@ class SandboxExecutor:
 
     def __init__(
         self,
-        limits: Optional[SandboxLimits] = None,
+        limits: SandboxLimits | None = None,
         image: str = SANDBOX_DOCKER_IMAGE,
     ):
         self.limits = limits or DEFAULT_LIMITS
@@ -44,8 +44,7 @@ class SandboxExecutor:
             self.client.ping()
         except docker.errors.DockerException as e:
             raise RuntimeError(
-                "Cannot connect to Docker daemon. Is Docker Desktop running?\n"
-                f"Error: {e}"
+                f"Cannot connect to Docker daemon. Is Docker Desktop running?\nError: {e}"
             ) from e
 
     def run(self, code: str) -> ExecutionResult:
@@ -68,12 +67,8 @@ class SandboxExecutor:
             result = container.wait(timeout=self.limits.timeout_seconds)
 
             # Retrieve separate stream logs and decode bytes to utf-8 strings
-            stdout = container.logs(stdout=True, stderr=False).decode(
-                "utf-8", errors="replace"
-            )
-            stderr = container.logs(stdout=False, stderr=True).decode(
-                "utf-8", errors="replace"
-            )
+            stdout = container.logs(stdout=True, stderr=False).decode("utf-8", errors="replace")
+            stderr = container.logs(stdout=False, stderr=True).decode("utf-8", errors="replace")
             exit_code = result.get("StatusCode", 1)
 
             return ExecutionResult(
@@ -87,9 +82,7 @@ class SandboxExecutor:
             error_msg = str(e)
             is_timeout = "Read timed out" in error_msg or "timed out" in error_msg.lower()
 
-            logger.warning(
-                f"Execution {'timed out' if is_timeout else 'failed'}: {error_msg}"
-            )
+            logger.warning(f"Execution {'timed out' if is_timeout else 'failed'}: {error_msg}")
 
             # Force-kill container immediately if still running
             if container:

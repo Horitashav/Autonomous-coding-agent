@@ -1,7 +1,8 @@
 """Tests for the Docker sandbox executor."""
 
 import pytest
-from agent.sandbox.executor import ExecutionResult, SandboxExecutor
+
+from agent.sandbox.executor import SandboxExecutor
 from agent.sandbox.resource_limits import SandboxLimits
 
 

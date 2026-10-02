@@ -7,13 +7,13 @@ from dataclasses import dataclass
 class SandboxLimits:
     """Immutable configuration for sandbox resource constraints."""
 
-    memory: str = "512m"           # RAM limit (e.g. 512MB)
-    cpu_count: int = 1             # CPU core count
-    timeout_seconds: int = 15      # Execution cutoff timer
-    pid_limit: int = 64            # Maximum concurrent processes (stops fork bombs)
-    tmpfs_size: str = "64m"        # Writable in-memory scratch space
-    network_mode: str = "none"     # Disable all network adapters (no internet access)
-    read_only: bool = True         # Protect container root filesystem from changes
+    memory: str = "512m"  # RAM limit (e.g. 512MB)
+    cpu_count: int = 1  # CPU core count
+    timeout_seconds: int = 15  # Execution cutoff timer
+    pid_limit: int = 64  # Maximum concurrent processes (stops fork bombs)
+    tmpfs_size: str = "64m"  # Writable in-memory scratch space
+    network_mode: str = "none"  # Disable all network adapters (no internet access)
+    read_only: bool = True  # Protect container root filesystem from changes
 
     def to_docker_kwargs(self) -> dict:
         """Convert security limits into Docker SDK keyword arguments."""

@@ -1,6 +1,5 @@
 """Tests for AST security checker and input prompt guardrails."""
 
-import pytest
 from agent.guardrails.ast_checker import check_code_safety
 from agent.guardrails.input_guard import check_input_safety
 

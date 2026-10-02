@@ -5,9 +5,7 @@ import sys
 
 def test_python_version():
     """Verify Python 3.11+ is used."""
-    assert sys.version_info >= (3, 11), (
-        f"Python 3.11+ required, but you're running {sys.version}."
-    )
+    assert sys.version_info >= (3, 11), f"Python 3.11+ required, but you're running {sys.version}."
 
 
 def test_config_loads_successfully():
@@ -15,7 +13,6 @@ def test_config_loads_successfully():
     from agent.config import (
         FORBIDDEN_MODULES,
         MAX_REPAIR_ATTEMPTS,
-        PROJECT_ROOT,
         SANDBOX_MEMORY_LIMIT,
         SANDBOX_TIMEOUT_SECONDS,
     )
@@ -35,9 +32,7 @@ def test_config_values_are_sensible():
         SANDBOX_TIMEOUT_SECONDS,
     )
 
-    assert SANDBOX_MEMORY_LIMIT.endswith(("m", "g")), (
-        "Memory limit must be like '512m' or '1g'"
-    )
+    assert SANDBOX_MEMORY_LIMIT.endswith(("m", "g")), "Memory limit must be like '512m' or '1g'"
     assert 5 <= SANDBOX_TIMEOUT_SECONDS <= 60, "Timeout should be 5-60 seconds"
     assert 1 <= MAX_REPAIR_ATTEMPTS <= 10, "Repair attempts should be 1-10"
     assert 10 <= SANDBOX_PID_LIMIT <= 256

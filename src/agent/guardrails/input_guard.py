@@ -2,7 +2,6 @@
 
 import re
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -12,7 +11,7 @@ class GuardResult:
     is_safe: bool
     risk_level: str = "low"  # "low", "medium", "high"
     triggered_rules: list[str] = field(default_factory=list)
-    sanitized_input: Optional[str] = None
+    sanitized_input: str | None = None
 
 
 # Patterns derived from security research targeting LLMs
@@ -34,7 +33,9 @@ INJECTION_PATTERNS: list[tuple[re.Pattern, str, str]] = [
         "high",
     ),
     (
-        re.compile(r"forget\s+(all\s+)?(previous|prior|your)\s+(instructions|rules)", re.IGNORECASE),
+        re.compile(
+            r"forget\s+(all\s+)?(previous|prior|your)\s+(instructions|rules)", re.IGNORECASE
+        ),
         "instruction_forget",
         "high",
     ),
@@ -61,7 +62,9 @@ INJECTION_PATTERNS: list[tuple[re.Pattern, str, str]] = [
     ),
     # System prompt extraction
     (
-        re.compile(r"(show|reveal|display|print|output)\s+(your|the)\s+system\s+prompt", re.IGNORECASE),
+        re.compile(
+            r"(show|reveal|display|print|output)\s+(your|the)\s+system\s+prompt", re.IGNORECASE
+        ),
         "prompt_extraction",
         "high",
     ),
@@ -134,9 +137,9 @@ def check_input_safety(user_input: str) -> GuardResult:
                 max_risk = "medium"
 
     # Layer 3: Structural heuristics (excessive special characters)
-    special_char_ratio = sum(
-        1 for c in user_input if not c.isalnum() and not c.isspace()
-    ) / max(len(user_input), 1)
+    special_char_ratio = sum(1 for c in user_input if not c.isalnum() and not c.isspace()) / max(
+        len(user_input), 1
+    )
 
     if special_char_ratio > 0.4:
         triggered.append("high_special_char_ratio")
