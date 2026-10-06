@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from openai import OpenAI
 
-from agent.config import LLM_MODEL, LLM_TEMPERATURE, OPENAI_API_KEY
+from agent.config import GROQ_API_KEY, LLM_MODEL, LLM_TEMPERATURE
 
 logger = logging.getLogger(__name__)
 
@@ -34,20 +34,23 @@ class LLMResponse:
 
 
 class LLMClient:
-    """Wrapper around chat completion APIs."""
-
     def __init__(
         self,
         model: str = LLM_MODEL,
         temperature: float = LLM_TEMPERATURE,
-        api_key: str = OPENAI_API_KEY,
+        api_key: str = GROQ_API_KEY,
     ):
         if not api_key:
-            raise ValueError("No OpenAI API key found. Set OPENAI_API_KEY in your .env file.")
+            raise ValueError(
+                "No Groq API key found. Set GROQ_API_KEY in your .env file."
+            )
 
         self.model = model
         self.temperature = temperature
-        self.client = OpenAI(api_key=api_key)
+        self.client = OpenAI(
+            base_url="https://api.groq.com/openai/v1",
+            api_key=api_key,
+        )
 
     def generate(
         self,

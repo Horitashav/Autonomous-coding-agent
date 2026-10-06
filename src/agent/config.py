@@ -11,7 +11,8 @@ load_dotenv()
 # ===========================================================================
 # API KEYS
 # ===========================================================================
-OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+
 
 # ===========================================================================
 # SANDBOX RESOURCE LIMITS
@@ -28,7 +29,7 @@ SANDBOX_DOCKER_IMAGE: str = "python:3.11-slim"
 # ===========================================================================
 MAX_REPAIR_ATTEMPTS: int = 3
 MAX_CODE_LENGTH: int = 10_000
-LLM_MODEL: str = "gpt-4o-mini"
+LLM_MODEL: str = "openai/gpt-oss-120b"
 LLM_TEMPERATURE: float = 0.0
 
 # ===========================================================================

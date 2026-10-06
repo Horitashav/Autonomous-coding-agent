@@ -16,27 +16,42 @@ class GuardResult:
 
 # Patterns derived from security research targeting LLMs
 INJECTION_PATTERNS: list[tuple[re.Pattern, str, str]] = [
-    # Direct instruction overrides
+    # Direct instruction overrides (covers "ignore instructions", "ignore all instructions", "ignore prior instructions")
     (
-        re.compile(r"ignore\s+(all\s+)?previous\s+instructions", re.IGNORECASE),
+        re.compile(
+            r"ignore\s+(all\s+)?(previous\s+|prior\s+)?instructions?", re.IGNORECASE
+        ),
         "instruction_override",
         "high",
     ),
     (
-        re.compile(r"ignore\s+(all\s+)?prior\s+(instructions|rules|guidelines)", re.IGNORECASE),
-        "instruction_override_alt",
-        "high",
-    ),
-    (
-        re.compile(r"disregard\s+(all\s+)?(previous|prior|above)", re.IGNORECASE),
+        re.compile(
+            r"disregard\s+(all\s+)?(previous\s+|prior\s+|above\s+)?(instructions?|rules|guidelines)?",
+            re.IGNORECASE,
+        ),
         "instruction_disregard",
         "high",
     ),
     (
         re.compile(
-            r"forget\s+(all\s+)?(previous|prior|your)\s+(instructions|rules)", re.IGNORECASE
+            r"forget\s+(all\s+)?(previous\s+|prior\s+|your\s+)?(instructions?|rules)",
+            re.IGNORECASE,
         ),
         "instruction_forget",
+        "high",
+    ),
+    # System environment and secret exfiltration
+    (
+        re.compile(r"os\.environ", re.IGNORECASE),
+        "env_access_attempt",
+        "high",
+    ),
+    (
+        re.compile(
+            r"(show|reveal|display|print|leak)\s+(all\s+)?(the\s+)?(secret|env|environment|api[_\s]key)",
+            re.IGNORECASE,
+        ),
+        "env_leak_attempt",
         "high",
     ),
     # Persona / Role hijacking
@@ -46,7 +61,9 @@ INJECTION_PATTERNS: list[tuple[re.Pattern, str, str]] = [
         "high",
     ),
     (
-        re.compile(r"act\s+as\s+(a|an)\s+(unrestricted|unfiltered|uncensored)", re.IGNORECASE),
+        re.compile(
+            r"act\s+as\s+(a|an)\s+(unrestricted|unfiltered|uncensored)", re.IGNORECASE
+        ),
         "role_hijack_unrestricted",
         "high",
     ),
@@ -63,13 +80,17 @@ INJECTION_PATTERNS: list[tuple[re.Pattern, str, str]] = [
     # System prompt extraction
     (
         re.compile(
-            r"(show|reveal|display|print|output)\s+(your|the)\s+system\s+prompt", re.IGNORECASE
+            r"(show|reveal|display|print|output)\s+(your|the)\s+system\s+prompt",
+            re.IGNORECASE,
         ),
         "prompt_extraction",
         "high",
     ),
     (
-        re.compile(r"what\s+(are|is)\s+your\s+(instructions|system\s+prompt|rules)", re.IGNORECASE),
+        re.compile(
+            r"what\s+(are|is)\s+your\s+(instructions|system\s+prompt|rules)",
+            re.IGNORECASE,
+        ),
         "prompt_extraction_question",
         "medium",
     ),
