@@ -1,6 +1,7 @@
-"""Tests for orchestrator routing logic and node state transitions."""
+"""Tests for orchestrator routing logic, human-in-the-loop gates, and node state transitions."""
 
 from agent.orchestrator.graph import (
+    route_after_approval,
     route_after_execution,
     route_after_input_check,
     route_after_planning,
@@ -25,9 +26,9 @@ class TestRouting:
         state: AgentState = {"status": "running"}
         assert route_after_planning(state) == "generate_code"
 
-    def test_safe_code_routes_to_execution(self):
+    def test_safe_code_routes_to_human_approval(self):
         state: AgentState = {"code_is_safe": True}
-        assert route_after_safety_check(state) == "execute_code"
+        assert route_after_safety_check(state) == "human_approval"
 
     def test_unsafe_code_with_retries_routes_to_repair(self):
         state: AgentState = {"code_is_safe": False, "attempts": 1, "max_attempts": 3}
@@ -37,11 +38,19 @@ class TestRouting:
         state: AgentState = {"code_is_safe": False, "attempts": 3, "max_attempts": 3}
         assert route_after_safety_check(state) == "format_failure"
 
-    def test_success_routes_to_output(self):
+    def test_human_approval_granted_routes_to_execution(self):
+        state: AgentState = {"human_approved": True}
+        assert route_after_approval(state) == "execute_code"
+
+    def test_human_approval_denied_routes_to_failure(self):
+        state: AgentState = {"human_approved": False}
+        assert route_after_approval(state) == "format_failure"
+
+    def test_execution_success_routes_to_output(self):
         state: AgentState = {"status": "success"}
         assert route_after_execution(state) == "format_output"
 
-    def test_failure_routes_to_repair(self):
+    def test_execution_failure_routes_to_repair(self):
         state: AgentState = {"status": "needs_repair"}
         assert route_after_execution(state) == "repair_code"
 

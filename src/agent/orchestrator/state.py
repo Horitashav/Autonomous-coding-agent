@@ -1,6 +1,6 @@
 """Agent State — The central data schema passed between LangGraph nodes."""
 
-from typing import TypedDict
+from typing import Any, TypedDict
 
 
 class AgentState(TypedDict, total=False):
@@ -13,7 +13,11 @@ class AgentState(TypedDict, total=False):
     task_summary: str
     is_feasible: bool
     needs_approval: bool
+    approval_reason: str
     estimated_complexity: str
+
+    # Human-in-the-Loop approval
+    human_approved: bool
 
     # Code generation and safety
     code: str
@@ -29,7 +33,7 @@ class AgentState(TypedDict, total=False):
     # Routing and lifecycle control
     attempts: int
     max_attempts: int
-    status: str  # "running", "success", "failed", "blocked", "needs_repair"
+    status: str  # "running", "success", "failed", "blocked", "needs_repair", "rejected"
 
     # Final outputs
     final_output: str
@@ -38,3 +42,4 @@ class AgentState(TypedDict, total=False):
     # Observability & cost metrics
     total_tokens: int
     total_cost: float
+    step_history: list[dict[str, Any]]

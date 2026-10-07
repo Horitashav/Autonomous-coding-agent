@@ -9,6 +9,7 @@ from agent.orchestrator.nodes import (
     format_failure_node,
     format_output_node,
     generate_code_node,
+    human_approval_node,
     plan_task_node,
     repair_code_node,
 )
@@ -16,23 +17,21 @@ from agent.orchestrator.state import AgentState
 
 
 def route_after_input_check(state: AgentState) -> str:
-    """Branch after input check."""
     if state.get("status") == "blocked":
         return "format_failure"
     return "plan_task"
 
 
 def route_after_planning(state: AgentState) -> str:
-    """Branch after task planning."""
     if state.get("status") == "blocked":
         return "format_failure"
     return "generate_code"
 
 
 def route_after_safety_check(state: AgentState) -> str:
-    """Branch after AST security analysis."""
+    """Route to human approval gate if code is safe, else repair."""
     if state.get("code_is_safe"):
-        return "execute_code"
+        return "human_approval"
 
     attempts = state.get("attempts", 0)
     max_attempts = state.get("max_attempts", 3)
@@ -41,8 +40,14 @@ def route_after_safety_check(state: AgentState) -> str:
     return "format_failure"
 
 
+def route_after_approval(state: AgentState) -> str:
+    """Route after human approval check."""
+    if state.get("human_approved"):
+        return "execute_code"
+    return "format_failure"
+
+
 def route_after_execution(state: AgentState) -> str:
-    """Branch after sandbox execution (Self-Healing decision)."""
     status = state.get("status", "")
     if status == "success":
         return "format_output"
@@ -52,39 +57,34 @@ def route_after_execution(state: AgentState) -> str:
 
 
 def build_agent_graph() -> StateGraph:
-    """Construct and compile the agent state machine."""
+    """Construct and compile the agent state machine with HITL."""
     workflow = StateGraph(AgentState)
 
-    # Add all node steps
+    # Add nodes
     workflow.add_node("check_input", check_input_node)
     workflow.add_node("plan_task", plan_task_node)
     workflow.add_node("generate_code", generate_code_node)
     workflow.add_node("check_code_safety", check_code_safety_node)
+    workflow.add_node("human_approval", human_approval_node)
     workflow.add_node("execute_code", execute_code_node)
     workflow.add_node("repair_code", repair_code_node)
     workflow.add_node("format_output", format_output_node)
     workflow.add_node("format_failure", format_failure_node)
 
-    # Set start node
+    # Entry point
     workflow.set_entry_point("check_input")
 
-    # Connect conditional routing edges
+    # Routing
     workflow.add_conditional_edges(
         "check_input",
         route_after_input_check,
-        {
-            "plan_task": "plan_task",
-            "format_failure": "format_failure",
-        },
+        {"plan_task": "plan_task", "format_failure": "format_failure"},
     )
 
     workflow.add_conditional_edges(
         "plan_task",
         route_after_planning,
-        {
-            "generate_code": "generate_code",
-            "format_failure": "format_failure",
-        },
+        {"generate_code": "generate_code", "format_failure": "format_failure"},
     )
 
     workflow.add_edge("generate_code", "check_code_safety")
@@ -93,8 +93,17 @@ def build_agent_graph() -> StateGraph:
         "check_code_safety",
         route_after_safety_check,
         {
-            "execute_code": "execute_code",
+            "human_approval": "human_approval",
             "repair_code": "repair_code",
+            "format_failure": "format_failure",
+        },
+    )
+
+    workflow.add_conditional_edges(
+        "human_approval",
+        route_after_approval,
+        {
+            "execute_code": "execute_code",
             "format_failure": "format_failure",
         },
     )
@@ -109,10 +118,7 @@ def build_agent_graph() -> StateGraph:
         },
     )
 
-    # The repair loop routes back to security validation
     workflow.add_edge("repair_code", "check_code_safety")
-
-    # Final nodes terminate the graph
     workflow.add_edge("format_output", END)
     workflow.add_edge("format_failure", END)
 

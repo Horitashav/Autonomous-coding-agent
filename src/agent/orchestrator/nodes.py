@@ -9,6 +9,9 @@ from agent.guardrails.ast_checker import check_code_safety
 from agent.guardrails.input_guard import check_input_safety
 from agent.orchestrator.state import AgentState
 from agent.sandbox.executor import SandboxExecutor
+from rich.console import Console
+from rich.panel import Panel
+from rich.syntax import Syntax
 
 logger = logging.getLogger(__name__)
 
@@ -68,10 +71,21 @@ def plan_task_node(state: AgentState) -> dict:
     planner = _get_planner()
     plan = planner.analyze(prompt)
 
+    reasons = []
+    if plan.is_destructive:
+        reasons.append("Task involves data deletion or overwriting")
+    if plan.requires_file_io:
+        reasons.append("Task involves reading or writing disk files")
+    if plan.estimated_complexity == "complex":
+        reasons.append("Task has high computational complexity")
+
+    approval_reason = "; ".join(reasons) if reasons else "Routine execution"
+
     update = {
         "task_summary": plan.task_summary,
         "is_feasible": plan.is_feasible,
-        "needs_approval": plan.needs_approval,
+        "needs_approval": plan.needs_approval or len(reasons) > 0,
+        "approval_reason": approval_reason,
         "estimated_complexity": plan.estimated_complexity,
     }
 
@@ -82,7 +96,6 @@ def plan_task_node(state: AgentState) -> dict:
         )
 
     return update
-
 
 def generate_code_node(state: AgentState) -> dict:
     """Generate Python script using the LLM."""
@@ -109,7 +122,51 @@ def check_code_safety_node(state: AgentState) -> dict:
         "code_is_safe": result.is_safe,
         "safety_violations": result.violations,
     }
+# Initialized console for terminal prompts
+_console = Console()
 
+
+def human_approval_node(state: AgentState) -> dict:
+    """Pause and request explicit human authorization before sandbox execution."""
+    needs_approval = state.get("needs_approval", False)
+    reason = state.get("approval_reason", "High-risk operation requested")
+
+    # If planner and safety checks did not flag any concern, auto-approve
+    if not needs_approval:
+        return {"human_approved": True}
+
+    code = state.get("code", "")
+    _console.print()
+    _console.print(
+        Panel(
+            f"[bold yellow]⚠️ Human Approval Required[/bold yellow]\n\n"
+            f"[white]Reason:[/white] {reason}\n"
+            f"[white]Task:[/white] {state.get('task_summary', 'N/A')}",
+            border_style="yellow",
+        )
+    )
+
+    if code:
+        _console.print("\n[bold cyan]Review Proposed Code:[/bold cyan]")
+        _console.print(Syntax(code, "python", theme="monokai", line_numbers=True))
+
+    # Interactive confirmation prompt
+    try:
+        choice = input("\nAuthorize execution in sandbox? [y/N]: ").strip().lower()
+        approved = choice in ("y", "yes")
+    except (EOFError, KeyboardInterrupt):
+        approved = False
+
+    if approved:
+        _console.print("[green]✔ Execution authorized by user.[/green]\n")
+        return {"human_approved": True}
+    else:
+        _console.print("[red]✖ Execution rejected by user.[/red]\n")
+        return {
+            "human_approved": False,
+            "status": "rejected",
+            "error_summary": "Execution was canceled by user during human review.",
+        }
 
 def execute_code_node(state: AgentState) -> dict:
     """Execute code inside the isolated Docker sandbox."""
