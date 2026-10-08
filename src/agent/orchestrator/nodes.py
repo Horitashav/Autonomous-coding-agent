@@ -12,6 +12,9 @@ from agent.sandbox.executor import SandboxExecutor
 from rich.console import Console
 from rich.panel import Panel
 from rich.syntax import Syntax
+from agent.brain.code_generator import CodeGenerationResult, extract_code
+from agent.brain.prompts import CODE_GENERATOR_SYSTEM_PROMPT, CONTEXT_AWARE_USER_TEMPLATE
+from agent.context.context_builder import ContextBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -98,18 +101,42 @@ def plan_task_node(state: AgentState) -> dict:
     return update
 
 def generate_code_node(state: AgentState) -> dict:
-    """Generate Python script using the LLM."""
+    """Generate code, optionally with project file context."""
     prompt = state.get("prompt", "")
+    project_path = state.get("project_path", "")
     generator = _get_code_generator()
-    result = generator.generate(prompt)
+
+    context_text = ""
+    if project_path:
+        try:
+            builder = ContextBuilder(project_path)
+            ctx_result = builder.build(user_prompt=prompt, token_budget=20_000)
+            context_text = ctx_result.context_text
+            logger.info(f"Injected context: {len(ctx_result.included_files)} files")
+        except Exception as e:
+            logger.warning(f"Context building failed: {e}")
+
+    if context_text:
+        user_prompt = CONTEXT_AWARE_USER_TEMPLATE.format(
+            task_description=prompt,
+            project_context=context_text,
+        )
+        response = generator.llm_client.generate(
+            system_prompt=CODE_GENERATOR_SYSTEM_PROMPT,
+            user_prompt=user_prompt,
+        )
+        code = extract_code(response.content)
+        gen_result = CodeGenerationResult(code=code, llm_response=response)
+    else:
+        gen_result = generator.generate(prompt)
 
     prev_tokens = state.get("total_tokens", 0)
     prev_cost = state.get("total_cost", 0.0)
 
     return {
-        "code": result.code,
-        "total_tokens": prev_tokens + result.llm_response.total_tokens,
-        "total_cost": prev_cost + result.llm_response.estimated_cost_usd,
+        "code": gen_result.code,
+        "total_tokens": prev_tokens + gen_result.llm_response.total_tokens,
+        "total_cost": prev_cost + gen_result.llm_response.estimated_cost_usd,
     }
 
 

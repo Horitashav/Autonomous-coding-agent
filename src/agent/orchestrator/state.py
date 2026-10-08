@@ -8,6 +8,9 @@ class AgentState(TypedDict, total=False):
 
     # Initial user request
     prompt: str
+    
+# Project context
+    project_path: str  # Path to project root directory for multi-file ingestion
 
     # Planner metadata
     task_summary: str

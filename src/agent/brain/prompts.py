@@ -70,3 +70,20 @@ REPAIR_USER_TEMPLATE = (
     "## Attempt {attempt_number} of {max_attempts}\n\n"
     "Analyze the error and write the complete fixed Python script:"
 )
+# ===========================================================================
+# CONTEXT-AWARE CODE GENERATION TEMPLATE
+# ===========================================================================
+
+CONTEXT_AWARE_USER_TEMPLATE = """## Task
+{task_description}
+
+{project_context}
+
+## Requirements
+- Write a complete Python script that accomplishes the task above
+- You have access to the project files shown above — reference them as needed
+- Print all results to stdout
+- The script will run in an isolated environment with no internet access
+- If the task involves modifying an existing file, output the COMPLETE modified file
+
+Write the Python code now:"""
