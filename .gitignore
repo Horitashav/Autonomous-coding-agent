@@ -23,3 +23,32 @@ Thumbs.db
 
 # ===== Logs =====
 *.log
+
+# Virtual Environment & Python Caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.pytest_cache/
+
+# Local Environment Variables & Secrets
+.env
+.env.local
+
+# SQLite Database Files (if any were created locally)
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker Volume & PostgreSQL local artifacts (if mounted locally)
+postgres_data/
+
+# IDE / Editor Settings
+.vscode/
+.idea/
+
+# Operating System Files
+.DS_Store
+Thumbs.db
