@@ -1,54 +1,75 @@
-# ===== Python Cache & Build Artifacts =====
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.egg-info/
+# ==========================================
+# Frontend (React / Vite / Node)
+# ==========================================
+frontend/node_modules/
+node_modules/
+frontend/dist/
 dist/
-build/
+dist-ssr/
+*.local
+frontend/.env.local
+frontend/.env.*.local
+frontend/package-lock.json.bak
+frontend/.eslintcache
 
-# ===== Virtual Environment =====
-.venv/
-
-# ===== Secrets & Credentials (CRITICAL) =====
-.env
-
-# ===== IDE / Editor Settings =====
-.vscode/
-.idea/
-
-# ===== Operating System Artifacts =====
-Thumbs.db
-.DS_Store
-
-# ===== Logs =====
-*.log
-
-# Virtual Environment & Python Caches
+# ==========================================
+# Python Virtual Environments & Packages
+# ==========================================
 .venv/
 venv/
 env/
+ENV/
+*.egg-info/
+build/
+develop-eggs/
+eggs/
+parts/
+var/
+sdist/
+*.egg
+
+# ==========================================
+# Python Bytecode & Cache
+# ==========================================
 __pycache__/
 *.py[cod]
 *$py.class
 *.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 
-# Local Environment Variables & Secrets
+# ==========================================
+# Environment Variables & Secrets (CRITICAL)
+# ==========================================
 .env
-.env.local
+.env.*
+!.env.example
 
-# SQLite Database Files (if any were created locally)
+# ==========================================
+# Database & Docker Persistent Volumes
+# ==========================================
+postgres_data/
 *.db
 *.sqlite
 *.sqlite3
 
-# Docker Volume & PostgreSQL local artifacts (if mounted locally)
-postgres_data/
+# ==========================================
+# Logs & Agent Sandboxing Temporary Output
+# ==========================================
+*.log
+agent_workspace/
+temp/
+tmp/
 
-# IDE / Editor Settings
+# ==========================================
+# IDE & Operating System Artifacts
+# ==========================================
 .vscode/
 .idea/
-
-# Operating System Files
+*.swp
+*.swo
 .DS_Store
 Thumbs.db
+desktop.ini

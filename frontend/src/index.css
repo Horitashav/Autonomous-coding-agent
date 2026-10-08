@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* Deep Berry Palette (Sidebar, Controls, Accents) */
+    --berry-abyss: #24071B;
+    --berry-surface: #360B29;
+    --berry-border: #4D123B;
+    --berry-accent: #871658;
+    --berry-accent-hover: #A01B69;
+
+    /* Vanilla Cloud Palette (Main Workspace, Cards, Typography) */
+    --vanilla-base: #FAF6F0;
+    --vanilla-card: #FFFFFF;
+    --vanilla-subtle: #F3ECE2;
+    --vanilla-border: #E8DCCF;
+    --vanilla-text-dark: #24071B;
+    --vanilla-text-muted: #7A6960;
+  }
+
+  body {
+    background-color: var(--vanilla-base);
+    color: var(--vanilla-text-dark);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+}
