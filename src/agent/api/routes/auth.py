@@ -3,7 +3,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from agent.api.auth_utils import create_access_token, get_current_user, hash_password, verify_password
+from agent.api.auth_utils import (
+    create_access_token,
+    get_current_user,
+    hash_password,
+    verify_password,
+)
 from agent.api.database import get_db
 from agent.api.models import User
 from agent.api.schemas import TokenResponse, UserCreate, UserLogin, UserResponse

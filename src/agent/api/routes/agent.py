@@ -1,7 +1,7 @@
 """Agent Routes — Invokes the LangGraph state machine and persists execution data."""
 
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from agent.api.auth_utils import get_current_user
@@ -22,11 +22,7 @@ def send_message(
     db: Session = Depends(get_db),
 ):
     """Save user message, run agent workflow, and handle approval suspensions."""
-    chat = (
-        db.query(Chat)
-        .filter(Chat.chat_id == chat_id, Chat.owner_id == user.id)
-        .first()
-    )
+    chat = db.query(Chat).filter(Chat.chat_id == chat_id, Chat.owner_id == user.id).first()
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found.")
 
@@ -99,7 +95,9 @@ def send_message(
     assistant_msg = Message(
         chat_id=chat.id,
         role="assistant",
-        content=agent_result.get("final_output") or agent_result.get("error_summary") or "Execution completed.",
+        content=agent_result.get("final_output")
+        or agent_result.get("error_summary")
+        or "Execution completed.",
         code=generated_code,
         optimized_code=agent_result.get("optimized_code"),
         optimization_metrics=agent_result.get("optimization_metrics"),
@@ -181,7 +179,9 @@ def resolve_approval(
     assistant_msg = Message(
         chat_id=chat.id,
         role="assistant",
-        content=agent_result.get("final_output") or agent_result.get("error_summary") or "Resumed execution finished.",
+        content=agent_result.get("final_output")
+        or agent_result.get("error_summary")
+        or "Resumed execution finished.",
         code=generated_code,
         optimized_code=agent_result.get("optimized_code"),
         optimization_metrics=agent_result.get("optimization_metrics"),

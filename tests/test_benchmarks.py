@@ -5,7 +5,7 @@ Tests for the benchmark runner and reporter.
 import ast
 import pytest
 
-from agent.benchmarks.humaneval import BENCHMARK_PROBLEMS, BenchmarkProblem
+from agent.benchmarks.humaneval import BENCHMARK_PROBLEMS
 from agent.benchmarks.reporter import BenchmarkReporter
 from agent.benchmarks.runner import BenchmarkResult, ProblemResult
 
@@ -37,10 +37,18 @@ class TestBenchmarkResult:
         result = BenchmarkResult(
             total_problems=4,
             results=[
-                ProblemResult(task_id="1", difficulty="easy", passed=True, first_attempt_passed=True),
-                ProblemResult(task_id="2", difficulty="easy", passed=True, first_attempt_passed=True),
-                ProblemResult(task_id="3", difficulty="easy", passed=True, first_attempt_passed=False),
-                ProblemResult(task_id="4", difficulty="easy", passed=False, first_attempt_passed=False),
+                ProblemResult(
+                    task_id="1", difficulty="easy", passed=True, first_attempt_passed=True
+                ),
+                ProblemResult(
+                    task_id="2", difficulty="easy", passed=True, first_attempt_passed=True
+                ),
+                ProblemResult(
+                    task_id="3", difficulty="easy", passed=True, first_attempt_passed=False
+                ),
+                ProblemResult(
+                    task_id="4", difficulty="easy", passed=False, first_attempt_passed=False
+                ),
             ],
         )
         assert result.pass_at_1 == 50.0
@@ -50,9 +58,15 @@ class TestBenchmarkResult:
         result = BenchmarkResult(
             total_problems=3,
             results=[
-                ProblemResult(task_id="1", difficulty="easy", passed=True, first_attempt_passed=True),
-                ProblemResult(task_id="2", difficulty="easy", passed=True, first_attempt_passed=False),
-                ProblemResult(task_id="3", difficulty="easy", passed=False, first_attempt_passed=False),
+                ProblemResult(
+                    task_id="1", difficulty="easy", passed=True, first_attempt_passed=True
+                ),
+                ProblemResult(
+                    task_id="2", difficulty="easy", passed=True, first_attempt_passed=False
+                ),
+                ProblemResult(
+                    task_id="3", difficulty="easy", passed=False, first_attempt_passed=False
+                ),
             ],
         )
         assert result.recovery_rate == 50.0

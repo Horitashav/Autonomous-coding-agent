@@ -43,7 +43,7 @@ def route_after_safety_check(state: AgentState) -> str:
 
 def route_after_approval(state: AgentState) -> str:
     """Route after human approval check.
-    
+
     - True: proceed to execute in the Docker sandbox
     - None or awaiting_approval: suspend execution cleanly (exit graph)
     - False or rejected: route to failure diagnostic

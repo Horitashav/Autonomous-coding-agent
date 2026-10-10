@@ -1,6 +1,3 @@
-"""Sandbox package for isolated code execution."""
+"""Autonomous Coding Agent Package."""
 
-from agent.sandbox.executor import ExecutionResult, SandboxExecutor
-from agent.sandbox.resource_limits import DEFAULT_LIMITS, SandboxLimits
-
-__all__ = ["DEFAULT_LIMITS", "ExecutionResult", "SandboxExecutor", "SandboxLimits"]
+__version__ = "0.1.0"

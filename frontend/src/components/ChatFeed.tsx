@@ -12,6 +12,7 @@ import {
   Loader2,
   Zap,
   Code2,
+  Columns,
 } from 'lucide-react';
 
 interface ChatFeedProps {
@@ -21,6 +22,8 @@ interface ChatFeedProps {
   isSending: boolean;
 }
 
+type ViewMode = 'optimized' | 'baseline' | 'both';
+
 export const ChatFeed: React.FC<ChatFeedProps> = ({
   messages,
   onSendMessage,
@@ -28,8 +31,8 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
   isSending,
 }) => {
   const [prompt, setPrompt] = useState('');
-  const [copiedId, setCopiedId] = useState<number | null>(null);
-  const [showOptimizedMap, setShowOptimizedMap] = useState<Record<number, boolean>>({});
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [viewModes, setViewModes] = useState<Record<number, ViewMode>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -44,17 +47,18 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
     await onSendMessage(content);
   };
 
-  const handleCopyCode = (code: string, id: number) => {
+  const handleCopyCode = (code: string, key: string) => {
     navigator.clipboard.writeText(code);
-    setCopiedId(id);
+    setCopiedId(key);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const toggleViewMode = (msgId: number) => {
-    setShowOptimizedMap((prev) => ({
-      ...prev,
-      [msgId]: !prev[msgId],
-    }));
+  const cycleViewMode = (msgId: number) => {
+    setViewModes((prev) => {
+      const current = prev[msgId] || 'optimized';
+      const next: ViewMode = current === 'optimized' ? 'baseline' : current === 'baseline' ? 'both' : 'optimized';
+      return { ...prev, [msgId]: next };
+    });
   };
 
   return (
@@ -68,14 +72,13 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
             </div>
             <h2 className="text-lg font-bold text-[#24071B]">Autonomous Agent Workspace</h2>
             <p className="text-xs text-[#7A6960] mt-1.5 leading-relaxed">
-              Submit an algorithm or data structure prompt. The agent generates, sandbox-tests,
-              and refactors the implementation using Python's standard library.
+              Submit a task. The agent generates, tests in a Docker sandbox, and creates idiomatic refactors.
             </p>
           </div>
         ) : (
           messages.map((msg) => {
-            const isOptimizedActive = showOptimizedMap[msg.id] ?? !!msg.optimized_code;
-            const activeCode = (isOptimizedActive && msg.optimized_code) ? msg.optimized_code : msg.code;
+            const hasOptimization = !!msg.optimized_code && msg.optimized_code !== msg.code;
+            const currentMode: ViewMode = viewModes[msg.id] || (hasOptimization ? 'optimized' : 'baseline');
 
             return (
               <div
@@ -85,71 +88,94 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
                 }`}
               >
                 <div
-                  className={`max-w-3xl rounded-2xl p-5 text-sm leading-relaxed ${
+                  className={`max-w-4xl w-full rounded-2xl p-5 text-sm leading-relaxed ${
                     msg.role === 'user'
-                      ? 'bg-[#871658] text-[#FAF6F0] rounded-br-none shadow-md'
+                      ? 'bg-[#871658] text-[#FAF6F0] rounded-br-none shadow-md max-w-2xl'
                       : 'bg-white border border-[#E8DCCF] text-[#24071B] rounded-bl-none shadow-sm'
                   }`}
                 >
                   {/* Content Text */}
                   <div className="whitespace-pre-wrap">{msg.content}</div>
 
-                  {/* Code Block & Optimization Switcher */}
-                  {activeCode && (
+                  {/* Code Container */}
+                  {(msg.code || msg.optimized_code) && (
                     <div className="mt-4 rounded-xl border border-[#4D123B] bg-[#1A0413] text-[#FAF6F0] overflow-hidden text-xs shadow-inner">
-                      {/* Code Header Bar */}
+                      {/* Top Bar with Mode Switcher */}
                       <div className="flex items-center justify-between border-b border-[#4D123B] px-4 py-2.5 bg-[#24071B]">
                         <div className="flex items-center gap-2">
                           <Code2 className="h-4 w-4 text-[#871658]" />
                           <span className="font-mono text-xs text-[#FAF6F0]/80">
-                            {isOptimizedActive && msg.optimized_code
-                              ? 'Idiomatic Standard Library Solution'
-                              : 'Baseline Implementation'}
+                            {currentMode === 'both'
+                              ? 'Side-by-Side Comparison'
+                              : currentMode === 'optimized'
+                              ? '⚡ Idiomatic Standard Library Solution'
+                              : '📄 Baseline Implementation'}
                           </span>
                         </div>
 
                         <div className="flex items-center gap-2">
-                          {/* Optimization Toggle Button */}
-                          {msg.optimized_code && (
+                          {hasOptimization && (
                             <button
                               type="button"
-                              onClick={() => toggleViewMode(msg.id)}
-                              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                                isOptimizedActive
-                                  ? 'bg-[#871658] text-[#FAF6F0] shadow-sm'
-                                  : 'bg-[#360B29] text-[#FAF6F0]/70 hover:text-[#FAF6F0]'
-                              }`}
+                              onClick={() => cycleViewMode(msg.id)}
+                              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#871658] text-[#FAF6F0] hover:bg-[#A01B69] transition cursor-pointer"
                             >
-                              <Zap className="h-3 w-3" />
-                              {isOptimizedActive ? 'Show Baseline' : 'Show Optimized'}
+                              {currentMode === 'optimized' && <><Zap className="h-3 w-3" /> Show Baseline</>}
+                              {currentMode === 'baseline' && <><Columns className="h-3 w-3" /> Compare Both</>}
+                              {currentMode === 'both' && <><Zap className="h-3 w-3" /> Show Optimized</>}
                             </button>
                           )}
-
-                          {/* Copy Button */}
-                          <button
-                            type="button"
-                            onClick={() => handleCopyCode(activeCode, msg.id)}
-                            className="flex items-center gap-1.5 text-[#FAF6F0]/70 hover:text-[#FAF6F0] transition-colors ml-2 cursor-pointer"
-                          >
-                            {copiedId === msg.id ? (
-                              <>
-                                <Check className="h-3.5 w-3.5 text-emerald-400" />
-                                <span className="text-emerald-400">Copied</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="h-3.5 w-3.5" />
-                                <span>Copy</span>
-                              </>
-                            )}
-                          </button>
                         </div>
                       </div>
 
-                      {/* Code Area */}
-                      <pre className="p-4 font-mono text-[#FAF6F0] overflow-x-auto selection:bg-[#871658]">
-                        <code>{activeCode}</code>
-                      </pre>
+                      {/* Code Display Area */}
+                      {currentMode === 'both' && hasOptimization ? (
+                        /* Side-by-Side View */
+                        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-[#4D123B]">
+                          {/* Baseline Column */}
+                          <div className="flex flex-col">
+                            <div className="flex items-center justify-between px-3 py-1.5 bg-[#2A0520] border-b border-[#4D123B] text-[11px] text-[#FAF6F0]/70">
+                              <span className="font-mono">Baseline</span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyCode(msg.code || '', `base-${msg.id}`)}
+                                className="flex items-center gap-1 hover:text-[#FAF6F0]"
+                              >
+                                {copiedId === `base-${msg.id}` ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                                Copy
+                              </button>
+                            </div>
+                            <pre className="p-3 font-mono text-[#FAF6F0] overflow-x-auto text-[11px]">
+                              <code>{msg.code}</code>
+                            </pre>
+                          </div>
+
+                          {/* Optimized Column */}
+                          <div className="flex flex-col bg-[#160210]">
+                            <div className="flex items-center justify-between px-3 py-1.5 bg-[#340727] border-b border-[#4D123B] text-[11px] text-amber-300 font-medium">
+                              <span className="flex items-center gap-1"><Zap className="h-3 w-3" /> Optimized</span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyCode(msg.optimized_code || '', `opt-${msg.id}`)}
+                                className="flex items-center gap-1 text-[#FAF6F0]/70 hover:text-[#FAF6F0]"
+                              >
+                                {copiedId === `opt-${msg.id}` ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                                Copy
+                              </button>
+                            </div>
+                            <pre className="p-3 font-mono text-[#FAF6F0] overflow-x-auto text-[11px]">
+                              <code>{msg.optimized_code}</code>
+                            </pre>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Single Code View (Optimized or Baseline) */
+                        <div>
+                          <pre className="p-4 font-mono text-[#FAF6F0] overflow-x-auto text-xs">
+                            <code>{currentMode === 'optimized' && msg.optimized_code ? msg.optimized_code : msg.code}</code>
+                          </pre>
+                        </div>
+                      )}
 
                       {/* Compression Telemetry Banner */}
                       {msg.optimization_metrics && (
@@ -193,7 +219,7 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
                         <button
                           type="button"
                           onClick={() => onOpenFlowModal(msg.flow_graph!)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#871658] text-[#FAF6F0] hover:bg-[#A01B69] transition-all font-medium shadow-sm cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#871658] text-[#FAF6F0] hover:bg-[#A01B69] transition font-medium shadow-sm cursor-pointer"
                         >
                           <Layers className="h-3.5 w-3.5" />
                           View Flow Graph
@@ -236,7 +262,7 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
           <button
             type="submit"
             disabled={!prompt.trim() || isSending}
-            className="flex items-center justify-center rounded-xl bg-[#871658] px-5 text-[#FAF6F0] hover:bg-[#A01B69] disabled:opacity-40 transition-all shadow-md active:scale-95 cursor-pointer"
+            className="flex items-center justify-center rounded-xl bg-[#871658] px-5 text-[#FAF6F0] hover:bg-[#A01B69] disabled:opacity-40 transition shadow-md active:scale-95 cursor-pointer"
           >
             <Send className="h-4 w-4" />
           </button>

@@ -33,7 +33,9 @@ class BenchmarkReporter:
             lines.append("| Difficulty | Total | Passed | Rate |")
             lines.append("|---|---|---|---|")
             for diff, data in breakdown.items():
-                lines.append(f"| {diff.capitalize()} | {data['total']} | {data['passed']} | {data['rate']}% |")
+                lines.append(
+                    f"| {diff.capitalize()} | {data['total']} | {data['passed']} | {data['rate']}% |"
+                )
             lines.append("")
 
         lines.append("## Detailed Results\n")
@@ -50,9 +52,29 @@ class BenchmarkReporter:
         """Generate a tabular terminal report."""
         headers = ["Metric", "Value", "Target", "Status"]
         data = [
-            ["pass@1", f"{result.pass_at_1}%", "≥ 60%", "PASS" if result.pass_at_1 >= 60 else "FAIL"],
-            ["pass@3", f"{result.pass_at_3}%", "≥ 80%", "PASS" if result.pass_at_3 >= 80 else "FAIL"],
-            ["Recovery Rate", f"{result.recovery_rate}%", "≥ 70%", "PASS" if result.recovery_rate >= 70 else "FAIL"],
-            ["Avg Latency", f"{result.avg_latency_ms:.0f}ms", "≤ 15000ms", "PASS" if result.avg_latency_ms <= 15000 else "FAIL"],
+            [
+                "pass@1",
+                f"{result.pass_at_1}%",
+                "≥ 60%",
+                "PASS" if result.pass_at_1 >= 60 else "FAIL",
+            ],
+            [
+                "pass@3",
+                f"{result.pass_at_3}%",
+                "≥ 80%",
+                "PASS" if result.pass_at_3 >= 80 else "FAIL",
+            ],
+            [
+                "Recovery Rate",
+                f"{result.recovery_rate}%",
+                "≥ 70%",
+                "PASS" if result.recovery_rate >= 70 else "FAIL",
+            ],
+            [
+                "Avg Latency",
+                f"{result.avg_latency_ms:.0f}ms",
+                "≤ 15000ms",
+                "PASS" if result.avg_latency_ms <= 15000 else "FAIL",
+            ],
         ]
         return tabulate(data, headers=headers, tablefmt="grid")

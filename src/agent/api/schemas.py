@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 # AUTH SCHEMAS
 # ===========================================================================
 
+
 class UserCreate(BaseModel):
     """Payload contract for user registration."""
 
@@ -47,6 +48,7 @@ class TokenResponse(BaseModel):
 # ===========================================================================
 # CHAT & MESSAGE SCHEMAS
 # ===========================================================================
+
 
 class ChatCreate(BaseModel):
     """Payload to initiate a new chat thread."""
@@ -116,6 +118,7 @@ class ChatDetail(BaseModel):
 # ===========================================================================
 # FLOW GRAPH SCHEMA
 # ===========================================================================
+
 
 class FlowGraphRequest(BaseModel):
     """Standalone payload to extract AST flow trees from Python code."""

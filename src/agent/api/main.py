@@ -18,7 +18,9 @@ app = FastAPI(
 )
 
 # Parse allowed origins dynamically from environment with local dev fallbacks
-raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173")
+raw_origins = os.getenv(
+    "ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173"
+)
 allowed_origins = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
 
 app.add_middleware(
@@ -58,6 +60,7 @@ def readiness(response: Response):
     # Verify Docker Daemon (non-fatal if offline)
     try:
         import docker
+
         client = docker.from_env()
         client.ping()
         checks["docker"] = True

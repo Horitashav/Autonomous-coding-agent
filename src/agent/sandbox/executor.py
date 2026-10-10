@@ -2,9 +2,8 @@
 
 import logging
 from dataclasses import dataclass
-from typing import Optional
 
-from agent.config import SANDBOX_DOCKER_IMAGE
+from agent.config import settings
 from agent.sandbox.resource_limits import DEFAULT_LIMITS, SandboxLimits
 
 logger = logging.getLogger(__name__)
@@ -28,7 +27,7 @@ class ExecutionResult:
 
 class SandboxExecutor:
     """Manages creation, execution, and cleanup of Docker sandbox containers.
-    
+
     Uses lazy client evaluation so module importing and app startup succeed
     even if the Docker daemon is temporarily offline or unavailable.
     """
@@ -36,10 +35,10 @@ class SandboxExecutor:
     def __init__(
         self,
         limits: SandboxLimits | None = None,
-        image: str = SANDBOX_DOCKER_IMAGE,
+        image: str | None = None,
     ):
         self.limits = limits or DEFAULT_LIMITS
-        self.image = image
+        self.image = image if image is not None else settings.SANDBOX_DOCKER_IMAGE
         self._client = None
 
     @property
@@ -48,6 +47,7 @@ class SandboxExecutor:
         if self._client is None:
             try:
                 import docker
+
                 client = docker.from_env()
                 client.ping()
                 self._client = client

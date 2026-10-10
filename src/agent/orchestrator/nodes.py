@@ -286,7 +286,9 @@ def format_failure_node(state: AgentState) -> dict:
 
     if not error_summary:
         if state.get("timed_out"):
-            error_summary = f"Task timed out after {attempts} attempt(s). Last error:\n{stderr[-500:]}"
+            error_summary = (
+                f"Task timed out after {attempts} attempt(s). Last error:\n{stderr[-500:]}"
+            )
         else:
             error_summary = f"Task failed after {attempts} attempt(s). Last error:\n{stderr[-500:]}"
 
@@ -348,8 +350,16 @@ def optimize_code_node(state: AgentState) -> dict:
         response = None
 
     # Calculate LOC reduction
-    orig_lines = [line.strip() for line in code.splitlines() if line.strip() and not line.strip().startswith("#")]
-    opt_lines = [line.strip() for line in opt_code.splitlines() if line.strip() and not line.strip().startswith("#")]
+    orig_lines = [
+        line.strip()
+        for line in code.splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+    opt_lines = [
+        line.strip()
+        for line in opt_code.splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
     orig_loc = len(orig_lines)
     opt_loc = len(opt_lines)
 
@@ -357,8 +367,14 @@ def optimize_code_node(state: AgentState) -> dict:
     orig_ast_count = _count_ast_nodes(code)
     opt_ast_count = _count_ast_nodes(opt_code)
 
-    loc_reduction = round(((orig_loc - opt_loc) / max(orig_loc, 1)) * 100, 1) if orig_loc > opt_loc else 0.0
-    ast_reduction = round(((orig_ast_count - opt_ast_count) / max(orig_ast_count, 1)) * 100, 1) if orig_ast_count > opt_ast_count else 0.0
+    loc_reduction = (
+        round(((orig_loc - opt_loc) / max(orig_loc, 1)) * 100, 1) if orig_loc > opt_loc else 0.0
+    )
+    ast_reduction = (
+        round(((orig_ast_count - opt_ast_count) / max(orig_ast_count, 1)) * 100, 1)
+        if orig_ast_count > opt_ast_count
+        else 0.0
+    )
 
     metrics = {
         "original_loc": orig_loc,

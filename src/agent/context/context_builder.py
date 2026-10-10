@@ -78,10 +78,7 @@ class ContextBuilder:
         context_parts = ["## Project Context\n\n", tree_section]
         for pf in included:
             lang = pf.language if pf.language != "unknown" else ""
-            context_parts.append(
-                f"### File: {pf.relative_path}\n"
-                f"```{lang}\n{pf.content}\n```\n\n"
-            )
+            context_parts.append(f"### File: {pf.relative_path}\n```{lang}\n{pf.content}\n```\n\n")
 
         context_text = "".join(context_parts)
         return ContextResult(

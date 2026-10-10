@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import axios from 'axios';
 import api from '../lib/api';
 import type { User } from '../types/api';
 
@@ -28,7 +29,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const res = await api.get<User>('/auth/me');
         setUser(res.data);
       } catch (err) {
-        console.error('Failed to authenticate token:', err);
+        if (!axios.isAxiosError(err) || err.response?.status !== 401) {
+          console.error('Failed to authenticate token:', err);
+        }
         localStorage.removeItem('token');
         setToken(null);
         setUser(null);

@@ -18,9 +18,7 @@ class GuardResult:
 INJECTION_PATTERNS: list[tuple[re.Pattern, str, str]] = [
     # Direct instruction overrides (covers "ignore instructions", "ignore all instructions", "ignore prior instructions")
     (
-        re.compile(
-            r"ignore\s+(all\s+)?(previous\s+|prior\s+)?instructions?", re.IGNORECASE
-        ),
+        re.compile(r"ignore\s+(all\s+)?(previous\s+|prior\s+)?instructions?", re.IGNORECASE),
         "instruction_override",
         "high",
     ),
@@ -61,9 +59,7 @@ INJECTION_PATTERNS: list[tuple[re.Pattern, str, str]] = [
         "high",
     ),
     (
-        re.compile(
-            r"act\s+as\s+(a|an)\s+(unrestricted|unfiltered|uncensored)", re.IGNORECASE
-        ),
+        re.compile(r"act\s+as\s+(a|an)\s+(unrestricted|unfiltered|uncensored)", re.IGNORECASE),
         "role_hijack_unrestricted",
         "high",
     ),

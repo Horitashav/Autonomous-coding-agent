@@ -152,11 +152,7 @@ class FileIngester:
         """Recursively walk directory while pruning ignored subtrees in-place."""
         for dirpath, dirnames, filenames in os.walk(self.project_root):
             # Prune directories in-place so os.walk does not descend into them
-            dirnames[:] = [
-                d
-                for d in dirnames
-                if d not in self.skip_dirs and not d.startswith(".")
-            ]
+            dirnames[:] = [d for d in dirnames if d not in self.skip_dirs and not d.startswith(".")]
             for filename in filenames:
                 yield Path(dirpath) / filename
 
@@ -164,11 +160,7 @@ class FileIngester:
         """Generate a formatted visual tree representation of the project."""
         lines: list[str] = []
         for dirpath, dirnames, filenames in os.walk(self.project_root):
-            dirnames[:] = [
-                d
-                for d in dirnames
-                if d not in self.skip_dirs and not d.startswith(".")
-            ]
+            dirnames[:] = [d for d in dirnames if d not in self.skip_dirs and not d.startswith(".")]
             dirnames.sort()
 
             rel_dir = Path(dirpath).relative_to(self.project_root)

@@ -1,6 +1,5 @@
 """Auth Utilities — Cryptographic password hashing and JWT token lifecycle management."""
 
-import os
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -11,13 +10,10 @@ from sqlalchemy.orm import Session
 
 from agent.api.database import get_db
 from agent.api.models import User
+from agent.config import settings
 
-# In production environments, set JWT_SECRET_KEY via environment variables
-SECRET_KEY = os.getenv(
-    "JWT_SECRET_KEY", "prod-agent-secret-key-super-secure-hash-change-in-env"
-)
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_HOURS = 24
+SECRET_KEY = settings.JWT_SECRET_KEY
+ALGORITHM = settings.JWT_ALGORITHM
 
 # Extracts bearer tokens from 'Authorization: Bearer <token>' headers
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -40,7 +36,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_access_token(user_id: int, username: str) -> str:
     """Encode user claims into a cryptographically signed JWT access token."""
-    expire = datetime.now(timezone.utc) + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {
         "sub": str(user_id),
         "username": username,

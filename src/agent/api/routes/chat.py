@@ -15,16 +15,13 @@ router = APIRouter(prefix="/api/chats", tags=["chats"])
 @router.get("/", response_model=list[ChatSummary])
 def list_chats(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Fetch all chat threads belonging to the current user."""
-    chats = (
-        db.query(Chat)
-        .filter(Chat.owner_id == user.id)
-        .order_by(Chat.updated_at.desc())
-        .all()
-    )
+    chats = db.query(Chat).filter(Chat.owner_id == user.id).order_by(Chat.updated_at.desc()).all()
 
     results = []
     for chat in chats:
-        msg_count = db.query(func.count(Message.id)).filter(Message.chat_id == chat.id).scalar() or 0
+        msg_count = (
+            db.query(func.count(Message.id)).filter(Message.chat_id == chat.id).scalar() or 0
+        )
         results.append(
             ChatSummary(
                 id=chat.id,
@@ -67,11 +64,7 @@ def get_chat(
     db: Session = Depends(get_db),
 ):
     """Retrieve a complete chat session with full message history."""
-    chat = (
-        db.query(Chat)
-        .filter(Chat.chat_id == chat_id, Chat.owner_id == user.id)
-        .first()
-    )
+    chat = db.query(Chat).filter(Chat.chat_id == chat_id, Chat.owner_id == user.id).first()
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found.")
 
@@ -92,11 +85,7 @@ def delete_chat(
     db: Session = Depends(get_db),
 ):
     """Delete a chat and cascade-delete its messages."""
-    chat = (
-        db.query(Chat)
-        .filter(Chat.chat_id == chat_id, Chat.owner_id == user.id)
-        .first()
-    )
+    chat = db.query(Chat).filter(Chat.chat_id == chat_id, Chat.owner_id == user.id).first()
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found.")
 
@@ -112,11 +101,7 @@ def rename_chat(
     db: Session = Depends(get_db),
 ):
     """Rename a chat thread."""
-    chat = (
-        db.query(Chat)
-        .filter(Chat.chat_id == chat_id, Chat.owner_id == user.id)
-        .first()
-    )
+    chat = db.query(Chat).filter(Chat.chat_id == chat_id, Chat.owner_id == user.id).first()
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found.")
 

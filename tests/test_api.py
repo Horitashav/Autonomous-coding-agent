@@ -33,6 +33,7 @@ class TestAuthAndChatFlow:
     def authenticated_headers(self):
         """Create a unique user and return authorized bearer headers."""
         import uuid
+
         uid = uuid.uuid4().hex[:8]
         signup_payload = {
             "email": f"test_{uid}@example.com",

@@ -17,7 +17,7 @@ const DashboardContent: React.FC = () => {
 
   // Fetch workspaces when authenticated
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (loading || !isAuthenticated) return;
     const fetchChats = async () => {
       try {
         const res = await api.get<ChatSummary[]>('/chats/');
@@ -30,7 +30,7 @@ const DashboardContent: React.FC = () => {
       }
     };
     fetchChats();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, loading]);
 
   // Load chat messages when activeChatId changes
   useEffect(() => {

@@ -41,9 +41,7 @@ class LLMClient:
         api_key: str = GROQ_API_KEY,
     ):
         if not api_key:
-            raise ValueError(
-                "No Groq API key found. Set GROQ_API_KEY in your .env file."
-            )
+            raise ValueError("No Groq API key found. Set GROQ_API_KEY in your .env file.")
 
         self.model = model
         self.temperature = temperature
