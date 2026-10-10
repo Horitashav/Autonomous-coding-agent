@@ -52,6 +52,12 @@ class Chat(Base):
         cascade="all, delete-orphan",
         order_by="Message.created_at",
     )
+    approval_requests = relationship(
+        "ApprovalRequest",
+        back_populates="chat",
+        cascade="all, delete-orphan",
+        order_by="ApprovalRequest.id",
+    )
 
 
 class Message(Base):
@@ -64,15 +70,32 @@ class Message(Base):
     role = Column(String(20), nullable=False)
     content = Column(Text, nullable=False)
     code = Column(Text, nullable=True)
+    optimized_code = Column(Text, nullable=True)
+    optimization_metrics = Column(JSONB, nullable=True)
     stdout = Column(Text, nullable=True)
     stderr = Column(Text, nullable=True)
     status = Column(String(20), default="")
     tokens_used = Column(Integer, default=0)
     cost_usd = Column(Float, default=0.0)
 
-    # Production feature: Native JSONB queryable column
+    # Native PostgreSQL JSONB column for React Flow structures
     flow_graph = Column(JSONB, nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     chat = relationship("Chat", back_populates="messages")
+
+
+class ApprovalRequest(Base):
+    """Human-in-the-Loop pending action authorization record."""
+
+    __tablename__ = "approval_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    chat_id = Column(Integer, ForeignKey("chats.id", ondelete="CASCADE"), nullable=False)
+    status = Column(String(20), default="pending")  # pending, approved, rejected
+    reason = Column(Text, nullable=False)
+    proposed_code = Column(Text, nullable=False)
+    checkpoint_state = Column(JSONB, nullable=False)  # Serialized LangGraph state
+
+    chat = relationship("Chat", back_populates="approval_requests")

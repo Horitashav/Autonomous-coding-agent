@@ -14,37 +14,30 @@ export interface TokenResponse {
 export interface FlowNode {
   id: string;
   type: string;
-  data: {
-    label: string;
-    nodeType: string;
-    line: number;
-    details?: string;
-    color?: string;
-  };
+  data: { label: string; details?: string };
   position: { x: number; y: number };
-  style?: Record<string, any>;
 }
 
 export interface FlowEdge {
   id: string;
   source: string;
   target: string;
-  type?: string;
+  label?: string;
   animated?: boolean;
-  style?: Record<string, any>;
 }
 
 export interface FlowGraphData {
   nodes: FlowNode[];
   edges: FlowEdge[];
-  summary?: Array<{
-    id: string;
-    type: string;
-    label: string;
-    line: number;
-    depth: number;
-    display: string;
-  }>;
+}
+
+export interface OptimizationMetrics {
+  original_loc: number;
+  optimized_loc: number;
+  loc_reduction_pct: number;
+  original_ast_nodes: number;
+  optimized_ast_nodes: number;
+  ast_reduction_pct: number;
 }
 
 export interface Message {
@@ -53,6 +46,8 @@ export interface Message {
   role: 'user' | 'assistant';
   content: string;
   code?: string | null;
+  optimized_code?: string | null;
+  optimization_metrics?: OptimizationMetrics | null;
   stdout?: string | null;
   stderr?: string | null;
   status: string;

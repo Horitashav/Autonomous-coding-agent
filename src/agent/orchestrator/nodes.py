@@ -1,20 +1,24 @@
 """Graph Nodes — The individual processing steps in the agent pipeline."""
 
+import ast
 import logging
-
-from agent.brain.code_generator import CodeGenerator
+from agent.brain.code_generator import (
+    CodeGenerationResult,
+    CodeGenerator,
+    extract_code,
+)
 from agent.brain.planner import Planner
+from agent.brain.prompts import (
+    CODE_GENERATOR_SYSTEM_PROMPT,
+    CONTEXT_AWARE_USER_TEMPLATE,
+)
 from agent.config import MAX_REPAIR_ATTEMPTS
+from agent.context.context_builder import ContextBuilder
 from agent.guardrails.ast_checker import check_code_safety
 from agent.guardrails.input_guard import check_input_safety
+from agent.guardrails.output_guard import redact_pii
 from agent.orchestrator.state import AgentState
 from agent.sandbox.executor import SandboxExecutor
-from rich.console import Console
-from rich.panel import Panel
-from rich.syntax import Syntax
-from agent.brain.code_generator import CodeGenerationResult, extract_code
-from agent.brain.prompts import CODE_GENERATOR_SYSTEM_PROMPT, CONTEXT_AWARE_USER_TEMPLATE
-from agent.context.context_builder import ContextBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +104,7 @@ def plan_task_node(state: AgentState) -> dict:
 
     return update
 
+
 def generate_code_node(state: AgentState) -> dict:
     """Generate code, optionally with project file context."""
     prompt = state.get("prompt", "")
@@ -149,51 +154,38 @@ def check_code_safety_node(state: AgentState) -> dict:
         "code_is_safe": result.is_safe,
         "safety_violations": result.violations,
     }
-# Initialized console for terminal prompts
-_console = Console()
 
 
 def human_approval_node(state: AgentState) -> dict:
-    """Pause and request explicit human authorization before sandbox execution."""
+    """Check human authorization gate without blocking ASGI server execution."""
     needs_approval = state.get("needs_approval", False)
-    reason = state.get("approval_reason", "High-risk operation requested")
+    human_approved = state.get("human_approved", None)
 
-    # If planner and safety checks did not flag any concern, auto-approve
+    # 1. If no approval is needed, auto-approve and proceed
     if not needs_approval:
         return {"human_approved": True}
 
-    code = state.get("code", "")
-    _console.print()
-    _console.print(
-        Panel(
-            f"[bold yellow]⚠️ Human Approval Required[/bold yellow]\n\n"
-            f"[white]Reason:[/white] {reason}\n"
-            f"[white]Task:[/white] {state.get('task_summary', 'N/A')}",
-            border_style="yellow",
-        )
-    )
+    # 2. If already authorized via API / approval route, proceed
+    if human_approved is True:
+        return {"human_approved": True, "status": "running"}
 
-    if code:
-        _console.print("\n[bold cyan]Review Proposed Code:[/bold cyan]")
-        _console.print(Syntax(code, "python", theme="monokai", line_numbers=True))
-
-    # Interactive confirmation prompt
-    try:
-        choice = input("\nAuthorize execution in sandbox? [y/N]: ").strip().lower()
-        approved = choice in ("y", "yes")
-    except (EOFError, KeyboardInterrupt):
-        approved = False
-
-    if approved:
-        _console.print("[green]✔ Execution authorized by user.[/green]\n")
-        return {"human_approved": True}
-    else:
-        _console.print("[red]✖ Execution rejected by user.[/red]\n")
+    # 3. If explicit rejection received
+    if human_approved is False:
         return {
             "human_approved": False,
             "status": "rejected",
-            "error_summary": "Execution was canceled by user during human review.",
+            "error_summary": "Task was rejected by human operator during security review.",
         }
+
+    # 4. First pass: Suspend execution cleanly for async/UI approval
+    reason = state.get("approval_reason", "High-risk operation requested")
+    logger.info(f"Awaiting human approval for task: {reason}")
+    return {
+        "status": "awaiting_approval",
+        "human_approved": False,
+        "error_summary": f"Execution paused: Human approval required ({reason}).",
+    }
+
 
 def execute_code_node(state: AgentState) -> dict:
     """Execute code inside the isolated Docker sandbox."""
@@ -265,10 +257,23 @@ def repair_code_node(state: AgentState) -> dict:
 
 
 def format_output_node(state: AgentState) -> dict:
-    """Format standard output for successful task completion."""
-    stdout = state.get("stdout", "")
+    """Format standard output for successful completion and sanitize PII."""
+    stdout = state.get("stdout", "").strip()
+
+    # Redact sensitive PII before persistence and client delivery
+    try:
+        redaction = redact_pii(stdout)
+        final_output = redaction.redacted_text
+        if redaction.had_pii:
+            logger.warning(
+                f"Redacted {redaction.redaction_count} PII occurrences ({redaction.redacted_types})"
+            )
+    except Exception as e:
+        logger.warning(f"PII redaction skipped due to error: {e}")
+        final_output = stdout
+
     return {
-        "final_output": stdout.strip(),
+        "final_output": final_output,
         "status": "success",
     }
 
@@ -280,10 +285,98 @@ def format_failure_node(state: AgentState) -> dict:
     error_summary = state.get("error_summary", "")
 
     if not error_summary:
-        error_summary = f"Task failed after {attempts} attempt(s).\n\nLast error:\n{stderr[-500:]}"
+        if state.get("timed_out"):
+            error_summary = f"Task timed out after {attempts} attempt(s). Last error:\n{stderr[-500:]}"
+        else:
+            error_summary = f"Task failed after {attempts} attempt(s). Last error:\n{stderr[-500:]}"
 
     return {
         "error_summary": error_summary,
         "final_output": error_summary,
         "status": state.get("status", "failed"),
+    }
+
+
+OPTIMIZER_SYSTEM_PROMPT = """You are a Principal Python Architect specializing in idiomatic refactoring and cyclomatic simplification.
+Your goal is to take verified, working Python code and refactor it into clean, idiomatic Python using Python's standard library.
+
+STRICT REQUIREMENTS:
+1. Leverage standard library utilities:
+   - `collections` (Counter, defaultdict, deque)
+   - `itertools` (chain, combinations, pairwise, groupby, islice)
+   - `functools` (reduce, lru_cache)
+   - `heapq`, `math`, `re`, `pathlib`
+   - Built-in comprehensions
+2. Replace manual 10-25 line imperative loops and accumulators with concise 2-5 line standard library calls.
+3. Preserve the exact signature, behavior, and output semantics.
+4. DO NOT add verbose test data, sample runner boilerplate, or if __name__ == '__main__' blocks unless they were in the original code. Focus purely on condensing the logic.
+5. Output ONLY executable Python code within ```python ``` markdown fences.
+"""
+
+
+def _count_ast_nodes(code_str: str) -> int:
+    try:
+        tree = ast.parse(code_str)
+        return sum(1 for _ in ast.walk(tree))
+    except Exception:
+        return 0
+
+
+def optimize_code_node(state: AgentState) -> dict:
+    """Refactor verified code using standard library idioms and measure AST reduction."""
+    code = state.get("code", "")
+    if not code:
+        return {}
+
+    generator = _get_code_generator()
+
+    user_prompt = (
+        f"Task Description: {state.get('prompt', '')}\n\n"
+        f"Working Baseline Code:\n```python\n{code}\n```\n\n"
+        "Refactor this into concise, idiomatic Python using standard library modules."
+    )
+
+    try:
+        response = generator.llm_client.generate(
+            system_prompt=OPTIMIZER_SYSTEM_PROMPT,
+            user_prompt=user_prompt,
+        )
+        opt_code = extract_code(response.content)
+    except Exception as e:
+        logger.warning(f"Optimization node fallback: {e}")
+        opt_code = code
+        response = None
+
+    # Calculate LOC reduction
+    orig_lines = [line.strip() for line in code.splitlines() if line.strip() and not line.strip().startswith("#")]
+    opt_lines = [line.strip() for line in opt_code.splitlines() if line.strip() and not line.strip().startswith("#")]
+    orig_loc = len(orig_lines)
+    opt_loc = len(opt_lines)
+
+    # Calculate AST reduction
+    orig_ast_count = _count_ast_nodes(code)
+    opt_ast_count = _count_ast_nodes(opt_code)
+
+    loc_reduction = round(((orig_loc - opt_loc) / max(orig_loc, 1)) * 100, 1) if orig_loc > opt_loc else 0.0
+    ast_reduction = round(((orig_ast_count - opt_ast_count) / max(orig_ast_count, 1)) * 100, 1) if orig_ast_count > opt_ast_count else 0.0
+
+    metrics = {
+        "original_loc": orig_loc,
+        "optimized_loc": opt_loc,
+        "loc_reduction_pct": max(loc_reduction, 0.0),
+        "original_ast_nodes": orig_ast_count,
+        "optimized_ast_nodes": opt_ast_count,
+        "ast_reduction_pct": max(ast_reduction, 0.0),
+    }
+
+    prev_tokens = state.get("total_tokens", 0)
+    prev_cost = state.get("total_cost", 0.0)
+    added_tokens = response.total_tokens if response else 0
+    added_cost = response.estimated_cost_usd if response else 0.0
+
+    return {
+        "optimized_code": opt_code,
+        "optimization_metrics": metrics,
+        "total_tokens": prev_tokens + added_tokens,
+        "total_cost": prev_cost + added_cost,
     }

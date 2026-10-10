@@ -1,9 +1,8 @@
-"""Sandbox Executor — Runs code inside isolated Docker containers."""
+"""Sandbox Executor — Runs code inside isolated Docker containers with lazy initialization."""
 
 import logging
 from dataclasses import dataclass
-
-import docker
+from typing import Optional
 
 from agent.config import SANDBOX_DOCKER_IMAGE
 from agent.sandbox.resource_limits import DEFAULT_LIMITS, SandboxLimits
@@ -28,7 +27,11 @@ class ExecutionResult:
 
 
 class SandboxExecutor:
-    """Manages creation, execution, and cleanup of Docker sandbox containers."""
+    """Manages creation, execution, and cleanup of Docker sandbox containers.
+    
+    Uses lazy client evaluation so module importing and app startup succeed
+    even if the Docker daemon is temporarily offline or unavailable.
+    """
 
     def __init__(
         self,
@@ -37,26 +40,50 @@ class SandboxExecutor:
     ):
         self.limits = limits or DEFAULT_LIMITS
         self.image = image
+        self._client = None
 
-        try:
-            # Initialize client from local environment (named pipe on Windows)
-            self.client = docker.from_env()
-            self.client.ping()
-        except docker.errors.DockerException as e:
-            raise RuntimeError(
-                f"Cannot connect to Docker daemon. Is Docker Desktop running?\nError: {e}"
-            ) from e
+    @property
+    def client(self):
+        """Lazy-load and verify Docker client only when an execution request occurs."""
+        if self._client is None:
+            try:
+                import docker
+                client = docker.from_env()
+                client.ping()
+                self._client = client
+            except ImportError:
+                raise RuntimeError(
+                    "The 'docker' Python package is not installed in the environment."
+                )
+            except Exception as e:
+                raise RuntimeError(
+                    f"Cannot connect to Docker daemon. Is Docker Desktop running?\nError: {e}"
+                ) from e
+        return self._client
 
     def run(self, code: str) -> ExecutionResult:
         """Run Python code string inside an isolated ephemeral container."""
         container = None
+
+        # Verify daemon connectivity first; fail gracefully without crashing server
+        try:
+            docker_client = self.client
+        except RuntimeError as err:
+            logger.error(f"Sandbox daemon check failed: {err}")
+            return ExecutionResult(
+                exit_code=-1,
+                stdout="",
+                stderr=str(err),
+                timed_out=False,
+                error_message=str(err),
+            )
 
         try:
             docker_kwargs = self.limits.to_docker_kwargs()
 
             logger.info("Starting sandbox container...")
             # Detach=True allows non-blocking start so we can enforce our own timeout
-            container = self.client.containers.run(
+            container = docker_client.containers.run(
                 image=self.image,
                 command=["python", "-c", code],
                 detach=True,

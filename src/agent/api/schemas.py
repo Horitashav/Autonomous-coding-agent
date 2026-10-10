@@ -68,22 +68,23 @@ class MessageCreate(BaseModel):
 
 
 class MessageResponse(BaseModel):
-    """Serializes user or agent messages including code output and JSONB telemetry."""
-
-    model_config = ConfigDict(from_attributes=True)
-
     id: int
     chat_id: int
     role: str
     content: str
-    code: Optional[str] = None
-    stdout: Optional[str] = None
-    stderr: Optional[str] = None
-    status: str = ""
-    tokens_used: int = 0
-    cost_usd: float = 0.0
-    flow_graph: Optional[dict[str, Any]] = None
+    code: str | None = None
+    optimized_code: str | None = None
+    optimization_metrics: dict[str, Any] | None = None
+    stdout: str | None = None
+    stderr: str | None = None
+    status: str
+    tokens_used: int
+    cost_usd: float
+    flow_graph: dict[str, Any] | None = None
     created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class ChatSummary(BaseModel):

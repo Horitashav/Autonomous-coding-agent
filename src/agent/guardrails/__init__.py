@@ -1,12 +1,15 @@
-"""Guardrails module for input sanitization and code AST security checking."""
+"""Guardrails module — Security checks for input, code, and output."""
 
-from agent.guardrails.ast_checker import ASTCheckResult, SecurityViolation, check_code_safety
-from agent.guardrails.input_guard import GuardResult, check_input_safety
+from agent.guardrails.ast_checker import check_code_safety, ASTCheckResult, SecurityViolation
+from agent.guardrails.input_guard import check_input_safety, GuardResult
+from agent.guardrails.output_guard import redact_pii, RedactionResult
 
 __all__ = [
-    "ASTCheckResult",
-    "GuardResult",
-    "SecurityViolation",
     "check_code_safety",
     "check_input_safety",
+    "redact_pii",
+    "ASTCheckResult",
+    "GuardResult",
+    "RedactionResult",
+    "SecurityViolation",
 ]

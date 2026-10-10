@@ -1,70 +1,41 @@
-"""Central configuration for the Autonomous Coding Agent."""
-
-import os
-from pathlib import Path
-
-from dotenv import load_dotenv
-
-# Load .env file into os.environ
-load_dotenv()
-
-# ===========================================================================
-# API KEYS
-# ===========================================================================
-GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+from pydantic import Field, PostgresDsn
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-# ===========================================================================
-# SANDBOX RESOURCE LIMITS
-# ===========================================================================
-SANDBOX_MEMORY_LIMIT: str = "512m"
-SANDBOX_CPU_COUNT: int = 1
-SANDBOX_TIMEOUT_SECONDS: int = 15
-SANDBOX_PID_LIMIT: int = 64
-SANDBOX_TMPFS_SIZE: str = "64m"
-SANDBOX_DOCKER_IMAGE: str = "python:3.11-slim"
+class AppSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
-# ===========================================================================
-# AGENT BEHAVIOR
-# ===========================================================================
-MAX_REPAIR_ATTEMPTS: int = 3
-MAX_CODE_LENGTH: int = 10_000
-LLM_MODEL: str = "openai/gpt-oss-120b"
-LLM_TEMPERATURE: float = 0.0
+    # Environment
+    ENVIRONMENT: str = Field(default="production")
+    DEBUG: bool = Field(default=False)
+    PORT: int = Field(default=8000)
+    ALLOWED_ORIGINS: list[str] = Field(
+        default=["https://yourdomain.com"],
+        description="Allowed CORS origins"
+    )
 
-# ===========================================================================
-# SECURITY — FORBIDDEN MODULES
-# ===========================================================================
-FORBIDDEN_MODULES: set[str] = {
-    # Operating System Access
-    "os",
-    "subprocess",
-    "shutil",
-    "signal",
-    "ctypes",
-    "multiprocessing",
-    "pty",
-    # Network Access
-    "socket",
-    "requests",
-    "http",
-    "urllib",
-    "ftplib",
-    "smtplib",
-    "telnetlib",
-    "xmlrpc",
-    "webbrowser",
-    # Dynamic Code Execution & Dangerous Utils
-    "antigravity",
-    "code",
-    "codeop",
-    "compileall",
-    "importlib",
-    "runpy",
-    "pickle",
-}
+    # Core Secrets - NO insecure fallbacks allowed in production
+    JWT_SECRET_KEY: str = Field(..., min_length=32)
+    JWT_ALGORITHM: str = Field(default="HS256")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=1440)
 
-# ===========================================================================
-# PATHS
-# ===========================================================================
-PROJECT_ROOT: Path = Path(__file__).resolve().parent.parent.parent
+    DATABASE_URL: str = Field(..., description="PostgreSQL connection string")
+    
+    # LLM & Observability
+    GROQ_API_KEY: str = Field(...)
+    OPENAI_API_KEY: str | None = Field(default=None)
+    LANGCHAIN_TRACING_V2: bool = Field(default=False)
+    LANGCHAIN_API_KEY: str | None = Field(default=None)
+
+    # Execution Bounds & Circuit Breakers
+    MAX_RUN_BUDGET_USD: float = Field(default=0.50)
+    MAX_RUN_TOKENS: int = Field(default=50_000)
+    SANDBOX_TIMEOUT_SECONDS: int = Field(default=15)
+    DOCKER_ENABLED: bool = Field(default=True)
+
+
+settings = AppSettings()
