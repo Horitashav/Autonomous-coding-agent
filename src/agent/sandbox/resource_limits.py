@@ -27,7 +27,8 @@ class SandboxLimits:
 
         # Mount temporary writable scratch space in RAM if read_only is enabled
         if self.read_only:
-            kwargs["tmpfs"] = {"/tmp": f"rw,size={self.tmpfs_size}"}
+            # This is a container tmpfs mountpoint, not a host-side temp file.
+            kwargs["tmpfs"] = {"/tmp": f"rw,size={self.tmpfs_size}"}  # nosec B108
 
         return kwargs
 
