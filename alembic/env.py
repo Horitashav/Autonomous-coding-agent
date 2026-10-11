@@ -6,7 +6,7 @@ from sqlalchemy import pool
 from alembic import context
 
 from agent.api.database import Base, DATABASE_URL
-import agent.api.models  # Registers models with Base.metadata
+import agent.api.models  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

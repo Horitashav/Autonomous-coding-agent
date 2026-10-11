@@ -432,6 +432,33 @@ The execution graph (`src/agent/orchestrator/graph.py`) processes tasks through 
 
 The repository includes test suites covering unit verification, penetration defense, and runtime benchmarks:
 
+### API integration tests
+
+The API tests require a dedicated PostgreSQL database. Add this to your local `.env`:
+
+```env
+TEST_DATABASE_URL=postgresql+psycopg2://agent_admin:agent_secret_password@localhost:5432/agent_test_db
+```
+
+Create the database once if it does not already exist:
+
+```powershell
+docker compose exec -T postgres psql -U agent_admin -d postgres -c "CREATE DATABASE agent_test_db;"
+```
+
+Run migrations and the API tests against that database:
+
+```powershell
+$env:DATABASE_URL = $env:TEST_DATABASE_URL
+$env:PYTHONPATH = "src"
+alembic upgrade head
+python scripts/inspect_db.py "POST-MIGRATION"
+pytest tests/test_api.py -v -s
+```
+
+The test fixture refuses database names that are not clearly test/CI databases and verifies
+`public.users` exists. It does not create or drop tables.
+
 ```powershell
 # Run baseline unit and smoke tests
 pytest tests/test_setup.py tests/test_guardrails.py tests/test_brain.py tests/test_orchestrator.py -v

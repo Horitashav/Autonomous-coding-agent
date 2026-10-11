@@ -39,7 +39,7 @@ jobs:
         env:
           POSTGRES_USER: agent_admin
           POSTGRES_PASSWORD: agent_secret_password
-          POSTGRES_DB: agent_production_db
+          POSTGRES_DB: agent_test_db
         ports:
           - 5432:5432
         options: >-
@@ -65,20 +65,19 @@ jobs:
       - name: Build Sandbox Image
         run: docker build -f Dockerfile.sandbox -t agent-sandbox .
 
-      - name: Apply database migrations
+      - name: Run Database Migrations
         env:
           PYTHONPATH: src
-          DEBUG: "false"
+          DATABASE_URL: "postgresql+psycopg2://agent_admin:agent_secret_password@localhost:5432/agent_test_db"
           JWT_SECRET_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-          DATABASE_URL: "postgresql+psycopg2://agent_admin:agent_secret_password@localhost:5432/agent_production_db"
-          GROQ_API_KEY: "mock_test_key"
-        run: alembic upgrade head
+        run: |
+          alembic upgrade head
+          python scripts/inspect_db.py "POST-MIGRATION"
 
       - name: Run Pytest Suite
         env:
           PYTHONPATH: src
-          DEBUG: "false"
           JWT_SECRET_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-          DATABASE_URL: "postgresql+psycopg2://agent_admin:agent_secret_password@localhost:5432/agent_production_db"
+          DATABASE_URL: "postgresql+psycopg2://agent_admin:agent_secret_password@localhost:5432/agent_test_db"
           GROQ_API_KEY: "mock_test_key"
-        run: pytest tests/ -v
+        run: pytest tests/ -v -s
