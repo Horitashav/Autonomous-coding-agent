@@ -48,7 +48,7 @@ class TestRouting:
 
     def test_execution_success_routes_to_output(self):
         state: AgentState = {"status": "success"}
-        assert route_after_execution(state) == "format_output"
+        assert route_after_execution(state) == "optimize_code"
 
     def test_execution_failure_routes_to_repair(self):
         state: AgentState = {"status": "needs_repair"}

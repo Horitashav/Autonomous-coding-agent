@@ -65,9 +65,19 @@ jobs:
       - name: Build Sandbox Image
         run: docker build -f Dockerfile.sandbox -t agent-sandbox .
 
+      - name: Apply database migrations
+        env:
+          PYTHONPATH: src
+          DEBUG: "false"
+          JWT_SECRET_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          DATABASE_URL: "postgresql+psycopg2://agent_admin:agent_secret_password@localhost:5432/agent_production_db"
+          GROQ_API_KEY: "mock_test_key"
+        run: alembic upgrade head
+
       - name: Run Pytest Suite
         env:
           PYTHONPATH: src
+          DEBUG: "false"
           JWT_SECRET_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
           DATABASE_URL: "postgresql+psycopg2://agent_admin:agent_secret_password@localhost:5432/agent_production_db"
           GROQ_API_KEY: "mock_test_key"
