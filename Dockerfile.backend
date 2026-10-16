@@ -1,0 +1,26 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Configure apt to avoid CDN pipeline drops and retry transient network failures
+RUN echo 'Acquire::http::Pipeline-Depth "0";' > /etc/apt/apt.conf.d/99nopipeline && \
+    echo 'Acquire::Retries "3";' >> /etc/apt/apt.conf.d/99nopipeline && \
+    apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy packaging configuration and source files
+COPY pyproject.toml Readme.md ./
+COPY src/ ./src/
+COPY alembic/ ./alembic/
+COPY alembic.ini ./alembic.ini
+COPY scripts/ ./scripts/
+
+# Install the application and dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir .
+
+RUN chmod +x ./scripts/entrypoint.sh
+
+EXPOSE 8000
+ENTRYPOINT ["./scripts/entrypoint.sh"]

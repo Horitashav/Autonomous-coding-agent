@@ -1,504 +1,264 @@
 # Autonomous Coding Agent Studio
 
-An enterprise-grade, full-stack autonomous coding pipeline and visual developer workspace. The platform pairs a **LangGraph state machine** featuring automated cyclical self-healing and standard-library code optimization with an isolated **Docker sandbox**, multi-layer security guardrails, Human-in-the-Loop (HITL) authorization gates, PostgreSQL state persistence, an AST visualizer powered by **React Flow**, and a **Deep Berry & Vanilla Cloud** user interface.
+A full-stack workspace for generating, checking, and running Python code with an LLM. It includes a FastAPI service, a React frontend, PostgreSQL persistence, a LangGraph workflow, a Docker-based execution sandbox, and an AST flow visualizer.
 
----
+> **Security note:** Generated code is untrusted. The AST checks are one layer of defense, not a complete security boundary. Execution depends on Docker isolation. The deployed backend receives access to the Docker daemon through its socket; expose the application only behind appropriate network controls and TLS, and do not treat the backend host as isolated from a backend compromise.
 
-## Architecture Overview
+## What it does
 
-```
-                                      +------------------------------------+
-                                      |         React 19 + Vite SPA        |
-                                      | (Tailwind CSS, React Flow, Axios)  |
-                                      +-----------------+------------------+
-                                                        |
-                                                  JWT REST API
-                                                        |
-                                                        v
-                                      +------------------------------------+
-                                      |          FastAPI Gateway           |
-                                      |      (Pydantic, SQLAlchemy 2)      |
-                                      +--------+------------------+--------+
-                                               |                  |
-                        +----------------------+                  +----------------------+
-                        v                                                                v
-+-----------------------------+                                            +-----------------------------+
-|    PostgreSQL Relational    |                                            |    LangGraph Orchestrator   |
-| (JSONB Flow Graphs & Tel.)  |                                            | (10-Node Cyclical Workflow) |
-+-----------------------------+                                            +--------------+--------------+
-                                                                                          |
-                                 +--------------------------------------------------------+
-                                 |
-                                 v
-   [Input Guard] -> [Planner] -> [HITL Gate] -> [Code Generator] -> [AST Safety Check]
-                                                                            |
-                                                                   [Docker Sandbox]
-                                                                     /           \
-                                                              (Success)        (Error)
-                                                                 /                 \
-                                              [Optimizer Node]              [Repair Node]
-                                                     |                              |
-                                              [Format Output]               (Max Retries: 3)
-                                                     |                              |
-                                                   [END]                            v
-                                                                             [Format Failure]
+- Accepts coding prompts through an authenticated web workspace.
+- Uses a LangGraph pipeline to screen input, plan, generate code, inspect generated code, request approval for selected tasks, execute code, retry failures, and format the result.
+- Runs generated Python in a separate Docker container with configurable memory, CPU, process, timeout, network, and filesystem restrictions.
+- Optionally uses a project directory as context when a local path is supplied to the API.
+- Stores users, chat history, approvals, execution output, optimization metrics, and flow-graph data in PostgreSQL.
+- Converts Python source into an AST-derived graph for display in the frontend.
+- Reports token and estimated-cost usage and attempts a separate code optimization pass after successful execution.
 
+## Architecture
+
+```text
+Browser (React/Vite or Nginx)
+          |
+          | /api/*
+          v
+FastAPI API ---- PostgreSQL
+    |
+    +---- LangGraph workflow ---- Groq-compatible LLM API
+    |
+    +---- Docker daemon ---- ephemeral Python sandbox
 ```
 
----
+The staging Nginx container serves the frontend and proxies `/api/` requests to the backend. The backend's readiness endpoint checks PostgreSQL and Docker connectivity.
 
-## Core Features
+## Technology
 
-* **Cyclical Self-Healing Workflow:** A multi-step LangGraph state machine that generates, sandbox-tests, inspects runtime diagnostics (`stdout`/`stderr`), and iteratively patches execution errors across up to 3 repair cycles.
+- **Backend:** Python 3.11+, FastAPI, Pydantic, SQLAlchemy, Alembic
+- **Agent:** LangGraph, LangChain Core, OpenAI-compatible client configured for Groq
+- **Database:** PostgreSQL 16+
+- **Sandbox:** Docker SDK and `Dockerfile.sandbox`
+- **Frontend:** React 19, TypeScript, Vite, Tailwind CSS, React Flow
+- **Tests and tooling:** pytest, pytest-asyncio, Ruff, ESLint, TypeScript
 
+The current LLM client connects to Groq and requires `GROQ_API_KEY`. Set `LLM_MODEL` to a model identifier available to your Groq account. Although an `OPENAI_API_KEY` setting exists, the current client does not use it as a provider.
 
-* **Idiomatic Optimization & Telemetry Engine:** An automated refactoring node that transforms verbose imperative loops into concise, idiomatic Python standard library constructs (`collections`, `itertools`, `functools`, `pathlib`). Generates live AST node count and lines-of-code (LOC) reduction metrics exposed via an interactive "Show Baseline" vs. "Show Optimized" toggle.
-* **Defense-in-Depth Security Guardrails:**
-* *Input Guard:* Regex-based injection barrier detecting prompt overrides, role hijacking, and delimiters.
-
-
-* *AST Static Safety Scanner:* Python Abstract Syntax Tree analysis blocking malicious imports (`os`, `subprocess`, `socket`, `requests`, `shutil`) and dangerous primitives (`eval`, `exec`, `__import__`) prior to execution.
-
-
-* *Output Guard:* Post-processing redaction engine removing leaked PII (emails, phone numbers, SSNs, API tokens, IP addresses).
-
-
-
-
-* **Human-in-the-Loop (HITL) Authorization:** Safety checkpoint intercepting destructive, file-modifying, or complex tasks for explicit user confirmation before executing inside the runtime container.
-
-
-* **Ephemeral Docker Sandbox Execution:** Hardware-enforced isolation running untrusted code inside a non-root `python:3.11-slim` container configured with cgroup boundaries (512MB RAM, 1 CPU core, 64 PID cap, `network_mode="none"`, read-only root with 64MB `/tmp` tmpfs).
-
-
-* **Multi-File Project Context Ingestion:** Token-budgeted file ingester and context builder leveraging `tiktoken` to scan project repositories, prune build artifacts, rank relevant source files, and inject multi-file context into generation prompts.
-
-
-* **AST Flow Graph Extraction & Visual Canvas:** Dynamic AST parser compiling Python syntax trees into interactive, zoomable React Flow DAGs stored directly as queryable PostgreSQL `JSONB` structures.
-
-
-* **Dual-Tone Visual Design:** Split-panel authentication interface and dual-tone workspace combining deep berry surfaces (`#24071B`) with warm vanilla cloud parchment (`#FAF6F0`).
-
----
-
-## Tech Stack
-
-### Backend
-
-* **Framework:** FastAPI (Python 3.11+)
-
-
-* **Agent Orchestration:** LangGraph, LangChain Core
-
-
-* **Inference Providers:** Groq API (`langchain-groq`), OpenAI (`gpt-4o-mini`)
-
-
-* **Database & Persistence:** PostgreSQL 16+, SQLAlchemy 2.0, Alembic
-
-
-* **Database Driver:** `psycopg2-binary`
-* **Sandbox Infrastructure:** Docker SDK for Python (`docker>=7.0.0`)
-
-
-* **Token Management:** `tiktoken`
-
-* **Observability:** LangSmith (native tracing)
-
-
-* **Security & Authentication:** `passlib[bcrypt]`, `python-jose[cryptography]` (JWT)
-
-
-* **Validation:** Pydantic v2 (`pydantic[email]`)
-
-
-* **Testing:** `pytest`, `pytest-asyncio`, `ruff`
-
-
-### Frontend
-
-* **Framework:** React 19 / Vite SPA
-
-
-* **Language:** TypeScript (`verbatimModuleSyntax` compliant)
-* **Styling:** Tailwind CSS
-
-
-* **Interactive Graph Canvas:** `@xyflow/react` (React Flow)
-
-
-* **Icons:** `lucide-react`
-* **HTTP Client:** Axios with bearer-token interceptors
-
-
-
----
-
-## Repository Structure
+## Repository layout
 
 ```text
 .
-├── alembic/                         # Database migrations
-│   ├── versions/
-│   │   ├── ..._initial_schema.py
-│   │   └── d772756d64b4_add_optimized_code_and_optimization_.py
-│   └── env.py
-├── alembic.ini                      # Alembic migration configuration
-├── docker-compose.yml               # Local infrastructure (PostgreSQL)
-├── Dockerfile.sandbox               # Locked-down execution container (cgroups/non-root)
-├── pyproject.toml                   # Project metadata and package dependencies
-├── src/
-│   └── agent/
-│       ├── __init__.py
-│       ├── config.py                # Central single source of truth configuration
-│       ├── main.py                  # Rich-formatted CLI entry point
-│       ├── api/                     # Web REST API layer
-│       │   ├── auth_utils.py        # bcrypt hashing and JWT encoding/decoding
-│       │   ├── database.py          # SQLAlchemy PostgreSQL connection sessions
-│       │   ├── main.py              # FastAPI application initialization & CORS
-│       │   ├── models.py            # Database tables (User, Chat, Message)
-│       │   ├── schemas.py           # Pydantic serialization models
-│       │   └── routes/
-│       │       ├── agent.py         # Graph execution & AST flow endpoints
-│       │       ├── auth.py          # Signup, login, and /me profile routes
-│       │       └── chat.py          # Chat session CRUD routes
-│       ├── benchmarks/              # Performance benchmarking suite
-│       │   ├── humaneval.py         # Standardized test problems
-│       │   ├── reporter.py          # Markdown/terminal metrics generator
-│       │   └── runner.py            # pass@1 and pass@3 test runner
-│       ├── brain/                   # LLM integration & prompting
-│       │   ├── code_generator.py    # Code generation and repair orchestrator
-│       │   ├── llm_client.py        # OpenAI/Groq API client wrapper
-│       │   ├── planner.py           # Task feasibility & complexity analyzer
-│       │   └── prompts.py           # Generation, repair, and planning prompts
-│       ├── context/                 # Multi-file repository ingestion
-│       │   ├── context_builder.py   # Token budget manager and relevance ranker
-│       │   ├── file_ingester.py     # Recursive source file crawler
-│       │   └── token_counter.py     # tiktoken BPE analyzer
-│       ├── guardrails/              # Security defense layers
-│       │   ├── ast_checker.py       # AST node visitor blocking dangerous calls
-│       │   ├── input_guard.py       # Prompt injection pattern scanner
-│       │   └── output_guard.py      # Regex PII redaction engine
-│       ├── hitl/                    # Human-in-the-Loop gates
-│       │   └── approval.py          # Interactive confirmation routines
-│       ├── orchestrator/            # State machine core
-│       │   ├── graph.py             # LangGraph state machine assembly
-│       │   ├── nodes.py             # 10 pipeline node implementations
-│       │   └── state.py             # AgentState TypedDict schema
-│       └── visualization/           # AST tree conversion
-│           └── flow_analyzer.py     # Python AST to React Flow DAG parser
-├── tests/                           # Test suite
-│   ├── evals/
-│   │   ├── adversarial_suite.py     # 20 penetration tests (injection & escape)
-│   │   ├── benchmark_suite.py       # 50 deterministic verification tasks
-│   │   └── conftest.py              # Shared fixtures
-│   ├── test_brain.py                # LLM client & code generator unit tests
-│   ├── test_guardrails.py           # AST and input guard test suite
-│   ├── test_orchestrator.py         # LangGraph state and routing tests
-│   ├── test_sandbox.py              # Docker sandbox resource limit tests
-│   └── test_setup.py                # Baseline environment smoke tests
-└── frontend/                        # React 19 Single Page Application
-    ├── src/
-    │   ├── components/
-    │   │   ├── AuthModal.tsx        # Dual-tone authentication modal
-    │   │   ├── ChatFeed.tsx         # Message feed, code toggle, and telemetry
-    │   │   ├── FlowVisualizerModal.tsx # React Flow AST modal canvas
-    │   │   └── Sidebar.tsx          # Workspace threads and user session manager
-    │   ├── context/
-    │   │   └── AuthContext.tsx      # JWT session management context
-    │   ├── types/
-    │   │   └── api.ts               # Shared TypeScript schemas
-    │   ├── App.tsx                  # Root state container
-    │   ├── index.css                # Deep Berry and Vanilla Cloud styling tokens
-    │   └── main.tsx
-    ├── package.json
-    ├── tsconfig.json
-    └── vite.config.ts
-
+├── alembic/                 # Database migration revisions
+├── Dockerfile.backend       # API container image
+├── Dockerfile.sandbox       # Restricted code-execution image
+├── docker-compose.yml       # Local PostgreSQL service
+├── docker-compose.staging.yml # PostgreSQL, API, and frontend deployment
+├── scripts/
+│   ├── entrypoint.sh        # Applies migrations and starts Uvicorn
+│   └── inspect_db.py        # Database inspection helper
+├── src/agent/
+│   ├── api/                 # FastAPI routes, auth, schemas, and database
+│   ├── brain/               # LLM client, planner, and code generation
+│   ├── context/             # Project file ingestion and context building
+│   ├── guardrails/          # Input, AST, and output checks
+│   ├── orchestrator/        # LangGraph state, nodes, and workflow
+│   ├── sandbox/             # Docker execution and resource limits
+│   └── visualization/      # Python AST graph generation
+├── tests/                   # API, orchestration, guardrail, sandbox, and unit tests
+└── frontend/                # React application and Nginx configuration
 ```
 
----
+## Configuration
 
-## Environment Configuration
-
-Create a `.env` file in the project root:
-
-```env
-# ==========================================
-# LLM Orchestrator
-# ==========================================
-GROQ_API_KEY=gsk_your_groq_api_key_here
-OPENAI_API_KEY=sk-your_openai_key_here
-
-# ==========================================
-# PostgreSQL Database Configuration
-# ==========================================
-POSTGRES_USER=agent_admin
-POSTGRES_PASSWORD=agent_secret_password
-POSTGRES_DB=agent_production_db
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
-DATABASE_URL=postgresql+psycopg2://agent_admin:agent_secret_password@localhost:5432/agent_production_db
-
-# ==========================================
-# Authentication & Security
-# ==========================================
-# Generate with: python -c "import secrets; print(secrets.token_hex(32))"
-JWT_SECRET_KEY=your_generated_64_character_hex_key
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=1440
-
-# ==========================================
-# LangSmith Observability & Tracing (Optional)
-# ==========================================
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_API_KEY=lsv2_pt_your_langsmith_key_here
-LANGCHAIN_PROJECT=autonomous-coding-agent-studio
-LANGCHAIN_ENDPOINT=https://api.smith.langchain.com
-
-# ==========================================
-# Runtime Settings
-# ==========================================
-ENVIRONMENT=development
-PORT=8000
-
-```
-
----
-
-## Local Development Setup
-
-### 1. Prerequisites
-
-* **Python 3.11+**
-
-* **Node.js 20+** and `npm`
-* **Docker Desktop** (running with Linux containers enabled)
-
-
-
-### 2. Infrastructure Setup
-
-Start the local PostgreSQL container:
+Copy the example file and replace every placeholder with a value appropriate to your environment:
 
 ```powershell
-docker compose up -d
-
+Copy-Item .env.example .env
 ```
 
-Build the isolated execution sandbox container image:
+At minimum, configure:
+
+| Variable | Purpose |
+| --- | --- |
+| `GROQ_API_KEY` | Required key for LLM requests. |
+| `LLM_MODEL` | Model identifier supported by Groq. |
+| `JWT_SECRET_KEY` | Secret used to sign access tokens. Use a unique, random value of at least 32 characters. |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Local PostgreSQL credentials and database name. |
+| `DATABASE_URL` | Optional explicit SQLAlchemy URL; otherwise composed from the PostgreSQL variables. |
+| `ALLOWED_ORIGINS` | Comma-separated allowed browser origins. |
+| `SANDBOX_*` | Optional sandbox image and execution resource limits. |
+
+Generate a JWT secret in PowerShell with:
 
 ```powershell
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Do not use the example JWT value, local Compose credentials, or any sample key in a public or production deployment. Keep `.env` files out of source control.
+
+## Local development
+
+### Prerequisites
+
+- Python 3.11+
+- Node.js 20+ and npm
+- Docker Desktop or another Docker daemon, running in Linux-container mode
+- A Groq API key and a model identifier enabled for that account
+
+### Start PostgreSQL and build the sandbox image
+
+From the repository root:
+
+```powershell
+docker compose up -d postgres
 docker build -f Dockerfile.sandbox -t agent-sandbox .
-
 ```
 
-### 3. Backend Setup
+The sandbox image must be available to the Docker daemon used by the backend. The staging Compose configuration mounts the host Docker socket; building the image on a different daemon will not make it available to the deployed backend.
+
+### Start the backend
+
+After creating and editing `.env` as described above:
 
 ```powershell
-# Create and activate virtual environment
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-
-# Install package and development dependencies
 pip install -e ".[dev]"
 
-# Set path and apply database migrations
-$env:PYTHONPATH="src"
+$env:PYTHONPATH = "src"
 alembic upgrade head
-
-# Start FastAPI development server
 uvicorn agent.api.main:app --reload --port 8000
-
 ```
 
-Interactive OpenAPI documentation will be accessible at `[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)`.
+API documentation is available at `http://127.0.0.1:8000/docs`. Liveness is reported at `/api/health`; readiness is reported at `/api/health/ready` and requires database and Docker connectivity.
 
-### 4. Frontend Setup
+### Start the frontend
 
-Open a separate terminal window:
+In another terminal:
 
 ```powershell
 cd frontend
-
-# Install dependencies
-npm install
-
-# Start Vite development server
+npm ci
 npm run dev
-
 ```
 
-Open `http://localhost:5173` in your browser.
+Open the URL printed by Vite (normally `http://localhost:5173`). The Vite development server proxies `/api` requests to `http://127.0.0.1:8000`.
 
----
+## Agent workflow
 
-## LangGraph Node Workflow
+The graph in `src/agent/orchestrator/graph.py` processes a request through the following stages:
 
-The execution graph (`src/agent/orchestrator/graph.py`) processes tasks through a cyclical pipeline:
+1. Check the prompt with the input guard.
+2. Plan the task and identify work that requires approval or is not feasible in the sandbox.
+3. Generate Python, optionally using supplied project context.
+4. Inspect generated code with the AST safety checker.
+5. Pause for approval when required.
+6. Run approved code in the Docker sandbox.
+7. Ask the model to repair execution failures within the configured retry limit, rechecking repaired code before execution.
+8. On success, request an optimization pass and collect line/AST metrics.
+9. Format successful output and apply the output redactor.
 
-| Step | Node Name | Operation |
+The sandbox defaults are defined in `src/agent/sandbox/resource_limits.py`; most can be overridden through the `SANDBOX_*` settings. Actual isolation also depends on the host's Docker configuration.
+
+## API overview
+
+All endpoints except signup, login, health, and flow-graph generation require a bearer access token.
+
+| Method | Endpoint | Description |
 | --- | --- | --- |
-| **0** | `check_input` | Inspects prompt against 16 prompt injection patterns; stops malicious inputs.
+| `POST` | `/api/auth/signup` | Create an account and receive an access token. |
+| `POST` | `/api/auth/login` | Authenticate and receive an access token. |
+| `GET` | `/api/auth/me` | Return the authenticated user's profile. |
+| `GET` | `/api/chats/` | List the current user's chats. |
+| `POST` | `/api/chats/` | Create a chat. |
+| `GET` | `/api/chats/{chat_id}` | Read chat details and message history. |
+| `PUT` | `/api/chats/{chat_id}/rename` | Rename a chat. |
+| `DELETE` | `/api/chats/{chat_id}` | Delete a chat and its messages. |
+| `POST` | `/api/chats/{chat_id}/messages` | Submit a prompt and run the agent workflow. |
+| `POST` | `/api/chats/{chat_id}/approvals/{approval_id}?action=approve` | Approve a pending operation. Use `action=reject` to reject it. |
+| `POST` | `/api/flow-graph` | Generate an AST flow graph from Python source. |
+| `GET` | `/api/health` | Liveness probe. |
+| `GET` | `/api/health/ready` | Readiness probe for PostgreSQL and Docker. |
 
- |
-| **1** | `plan_task` | Analyzes task complexity, dependencies, and network requirements.
+## Current limitations
 
- |
-| **2** | `human_approval` | Prompts user before running destructive or high-risk actions.
+- **Project context paths are not restricted to a configured workspace root.** The API accepts `project_path` from the request and the backend reads files under that path before sending selected context to the configured LLM provider. Do not enable this for untrusted callers until paths are restricted to explicitly authorized project directories.
+- **Human approval is not fully wired to the frontend.** The API creates pending approval records and has an approval-resolution route, but message responses do not include the approval ID and there is no endpoint to list pending approvals.
+- **The flow-graph endpoint is unauthenticated and has no request-size limit for source code.** Add authentication, input limits, and rate limiting before exposing it to untrusted traffic.
 
- |
-| **3** | `generate_code` | Generates self-contained Python code, incorporating multi-file context if provided.
+## Tests and quality checks
 
- |
-| **4** | `check_code_safety` | Runs AST visitor to block dangerous modules and system calls.
+The test suite includes API, LLM/client, context, guardrail, orchestration, sandbox, and setup tests. API tests need a dedicated PostgreSQL database that has been migrated. The shared test fixture refuses to run unless the selected database name contains `test` or `ci` and the `public.users` table exists.
 
- |
-| **5** | `execute_code` | Runs code inside the isolated Docker sandbox under hardware limits.
-
- |
-| **6** | `repair_code` | Captures tracebacks, requests LLM fixes, and reruns the safety pipeline (up to 3 retries).
-
- |
-| **7** | `optimize_code` | Refactors successful solutions using Python standard libraries and logs AST reduction telemetry. |
-| **8** | `format_output` | Redacts sensitive PII (emails, phone numbers, tokens) from execution output.
-
- |
-| **9** | `format_failure` | Produces human-readable error summaries when repair retries are exhausted.
-
- |
-
----
-
-## API Reference
-
-### Authentication
-
-| Method | Endpoint | Description | Auth Required |
-| --- | --- | --- | --- |
-| `POST` | `/api/auth/signup` | Create user profile and return access token
-
- | No |
-| `POST` | `/api/auth/login` | Authenticate credentials and return access token
-
- | No |
-| `GET` | `/api/auth/me` | Fetch active authenticated session details
-
- | Bearer JWT
-
- |
-
-### Workspace & Agent Dispatch
-
-| Method | Endpoint | Description | Auth Required |
-| --- | --- | --- | --- |
-| `GET` | `/api/chats/` | List all user workspaces
-
- | Bearer JWT
-
- |
-| `POST` | `/api/chats/` | Create a new workspace thread
-
- | Bearer JWT
-
- |
-| `GET` | `/api/chats/{chat_id}` | Retrieve chat history, execution outputs, and telemetry
-
- | Bearer JWT
-
- |
-| `PUT` | `/api/chats/{chat_id}/rename` | Rename an existing workspace thread
-
- | Bearer JWT
-
- |
-| `DELETE` | `/api/chats/{chat_id}` | Delete a workspace and its stored messages
-
- | Bearer JWT
-
- |
-| `POST` | `/api/chats/{chat_id}/messages` | Submit a prompt to run through the LangGraph pipeline
-
- | Bearer JWT
-
- |
-| `POST` | `/api/flow-graph` | Convert arbitrary Python code into a React Flow AST graph
-
- | No |
-
----
-
-## Automated Evaluation & Benchmark Suite
-
-The repository includes test suites covering unit verification, penetration defense, and runtime benchmarks:
-
-### API integration tests
-
-The API tests require a dedicated PostgreSQL database. Add this to your local `.env`:
-
-```env
-TEST_DATABASE_URL=postgresql+psycopg2://agent_admin:agent_secret_password@localhost:5432/agent_test_db
-```
-
-Create the database once if it does not already exist:
+Start the local database, then create a dedicated test database once:
 
 ```powershell
 docker compose exec -T postgres psql -U agent_admin -d postgres -c "CREATE DATABASE agent_test_db;"
 ```
 
-Run migrations and the API tests against that database:
+Set the test connection and apply migrations to that database before running pytest:
 
 ```powershell
+$env:TEST_DATABASE_URL = "postgresql+psycopg2://agent_admin:agent_secret_password@localhost:5432/agent_test_db"
 $env:DATABASE_URL = $env:TEST_DATABASE_URL
 $env:PYTHONPATH = "src"
 alembic upgrade head
-python scripts/inspect_db.py "POST-MIGRATION"
-pytest tests/test_api.py -v -s
+pytest tests/ -v
 ```
 
-The test fixture refuses database names that are not clearly test/CI databases and verifies
-`public.users` exists. It does not create or drop tables.
+The local Compose credentials above are for local development only. Sandbox tests additionally need Docker and the `agent-sandbox` image; they may skip when Docker is unavailable.
 
-```powershell
-# Run baseline unit and smoke tests
-pytest tests/test_setup.py tests/test_guardrails.py tests/test_brain.py tests/test_orchestrator.py -v
-
-# Run the 20-case penetration testing suite
-pytest tests/evals/adversarial_suite.py -v
-
-# Run the 50-problem deterministic benchmark suite
-pytest tests/evals/benchmark_suite.py -v
-
-# Run multi-file context and HumanEval benchmark evaluations
-pytest tests/test_context.py tests/test_benchmarks.py -v
-
-```
-
----
-
-## Production Deployment
-
-### Containerized Multi-Service Deployment
-
-Run the complete backend and database stack via Docker Compose:
-
-```powershell
-docker compose up --build -d
-
-```
-
-### Static Asset Build
-
-Compile the React frontend bundle for static hosting:
+Frontend checks:
 
 ```powershell
 cd frontend
+npm run lint
 npm run build
-# Production distribution files output to frontend/dist/
-
 ```
 
----
+## AWS EC2 deployment
+
+The included staging stack is Docker Compose-based and can be run on a Linux EC2 instance with Docker Engine and the Compose v2 plugin installed. The instructions below assume the repository and deployment files are present on the instance.
+
+1. Launch a Linux EC2 instance in a VPC and install Docker Engine plus the Docker Compose v2 plugin using the official instructions for the selected operating system. Assign an Elastic IP if you need a stable public address, then point your DNS record at that address.
+2. Configure the instance security group to allow SSH only from your administrator IP. Allow inbound HTTP (`80`) for the application, and HTTPS (`443`) if TLS is terminated on the instance or by a fronting load balancer. Do not expose PostgreSQL (`5432`) or the backend (`8000`) directly to the internet.
+3. Connect to the instance using your EC2 key pair. Keep the private key on your local machine; never add it to the repository, an image, or the instance. Clone or update the project on the instance, then follow the Compose deployment steps below.
+4. Set `ALLOWED_ORIGINS` to the exact public browser origin, including the scheme and hostname (for example, `https://agent.example.com` once HTTPS is configured). Do not use `*` for an authenticated deployment.
+5. Put TLS in front of the current HTTP-only frontend service before making the application publicly accessible. The security group and instance firewall should expose only the required web ports.
+
+The Compose stack stores PostgreSQL data in a Docker volume on the EC2 host. That volume is not a backup and will not protect against instance or volume loss. Configure regular database backups and test restoration. The stack is not configured for AWS RDS, ECS, or a managed load balancer out of the box.
+
+## Docker Compose deployment
+
+The `docker-compose.staging.yml` file starts PostgreSQL, the API, and the Nginx frontend. The frontend is published on host port `80`; the API and database are internal to the Compose network. On EC2, run these commands from the repository directory on the EC2 host.
+
+1. Create a separate staging environment file and set real values. Do not commit it:
+
+   ```powershell
+   Copy-Item .env.example .env.staging
+   ```
+
+   Set at least `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `JWT_SECRET_KEY`, `GROQ_API_KEY`, `LLM_MODEL`, and `ALLOWED_ORIGINS`. Set `ALLOWED_ORIGINS` to the exact browser origin(s) serving the frontend. Use a unique, random JWT secret of at least 32 characters.
+
+2. Build the sandbox image on the same Docker host/daemon that will run the backend:
+
+   ```powershell
+   docker build -f Dockerfile.sandbox -t agent-sandbox .
+   ```
+
+3. Build and start the staging stack:
+
+   ```powershell
+   docker compose --env-file .env.staging -f docker-compose.staging.yml up --build -d
+   ```
+
+4. Check service status and logs:
+
+   ```powershell
+   docker compose --env-file .env.staging -f docker-compose.staging.yml ps
+   docker compose --env-file .env.staging -f docker-compose.staging.yml logs --tail 100 backend frontend
+   ```
+
+   Once healthy, the application is served at `http://<your-host>/`. Confirm the backend readiness endpoint through the frontend proxy at `http://<your-host>/api/health/ready`.
+
+The staging configuration currently publishes plain HTTP on port 80. Put it behind a TLS-terminating reverse proxy or load balancer before exposing it to the public internet. Protect the Docker host and Docker socket, use strong unique database credentials, and arrange database backups and operational monitoring. The named `postgres_staging_data` volume provides persistence, not backups.
 
 ## License
 
